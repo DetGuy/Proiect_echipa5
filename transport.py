@@ -28,7 +28,7 @@ def cel_mai_apropiat_transport(lat, lon):
         duration = result["rows"][0]["elements"][0]["duration"]["text"]
         print(f"🚏 Cea mai apropiată stație: {nume}")
         print(f"Distanta este {distance}. Timpul estimat este {duration}")
-        #print(f"⭐ Rating: {cea_mai_apropiata.get('rating', 'N/A')}")
+        
     else:
         print("Nu am găsit stații de transport în apropiere.")
 
