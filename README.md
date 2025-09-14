@@ -30,9 +30,10 @@ pip install -r requirements.txt
 
 # BACKLOG
 
-MUST: - Integrarea API-uirlor Amadeus si Google Maps
-      - conversie valutara(pentru aceasta aplicatie orice moneda este schimbata in euro)
-      - Validare date utilizator
+MUST:
+- Integrarea API-uirlor Amadeus si Google Maps
+- conversie valutara(pentru aceasta aplicatie orice moneda este schimbata in euro)
+- Validare date utilizator
       
 SHOULD: 
       - Afisare rating hotel
