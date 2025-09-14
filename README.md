@@ -51,7 +51,7 @@ COULD:
 
 # Relevant Architecture Documents
 
-# Foldere BACKEND
+## Foldere BACKEND
 - baza.py: punctul de intrare, interacțiune cu utilizatorul
 - transport.py: caută stații de transport și calculează distanțe
 - schimb_euro.py: conversie valutară
