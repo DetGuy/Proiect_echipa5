@@ -36,14 +36,14 @@ MUST:
 - Validare date utilizator
       
 SHOULD: 
-      - Afisare rating hotel
-      - Afisare cea mai apropiata statie
-      - Un fisiera (de preferat .txt) in care sa fie salvat istoricul de cazari
-      - Tratarea erorilor intr-un mod elegant
+- Afisare rating hotel
+- Afisare cea mai apropiata statie
+- Un fisiera (de preferat .txt) in care sa fie salvat istoricul de cazari
+- Tratarea erorilor intr-un mod elegant
 
 COULD:
-      - Notificari reduceri
-      - Sugestii turistice pentru orasul pe care dorim sa il vizitam
+- Notificari reduceri
+- Sugestii turistice pentru orasul pe care dorim sa il vizitam
 
 
 
