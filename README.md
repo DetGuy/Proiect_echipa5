@@ -16,10 +16,10 @@ This project is a Python-based application designed to assist users in identifyi
 
 # Requirements & Setup
 ## Requirements
--Python 3.10+
--pip (Python package manager)
--Git (for cloning the repository)
--A valid Amadeus API key and Google Maps API key
+- Python 3.10+
+- pip (Python package manager)
+- Git (for cloning the repository)
+- A valid Amadeus API key and Google Maps API key
 
 ## Setup
 pip install -r requirements.txt
