@@ -46,5 +46,77 @@ COULD:
 - Sugestii turistice pentru orasul pe care dorim sa il vizitam
 
 
+# Implementation roadmap for requirements
 
 
+# Relevant Architecture Documents
+
+# Foldere BACKEND
+- baza.py: punctul de intrare, interacțiune cu utilizatorul
+- transport.py: caută stații de transport și calculează distanțe
+- schimb_euro.py: conversie valutară
+- .env: stochează cheile API
+
+
+
+
+
+# **!!VA LAS AICI CE MI-A ZIS CHATUL SA SCRIETI PENTRU DUPA CE VA FI GATA PROIECTUL!!**
+📐 Ce ar trebui să conțină
+1. Diagramă de arhitectură
+Un desen simplu (poate fi PNG sau făcut în draw.io) care arată:
+
+Utilizatorul → Interfața CLI
+
+Modulele Python (baza.py, transport.py, schimb_euro.py)
+
+API-urile externe (Amadeus, Google Maps)
+
+Fișierul .env pentru chei
+
+Fluxul de date între componente
+
+2. Descrierea modulelor
+Ce face fiecare fișier:
+
+baza.py: punctul de intrare, interacțiune cu utilizatorul
+
+transport.py: caută stații de transport și calculează distanțe
+
+schimb_euro.py: conversie valutară
+
+.env: stochează cheile API
+
+3. Fluxul aplicației
+Pașii logici:
+
+Utilizatorul introduce orașul, datele și bugetul
+
+Se interoghează Amadeus pentru hoteluri
+
+Se calculează distanța până la stația de transport
+
+Se convertesc prețurile în euro
+
+Se afișează rezultatele
+
+
+
+
+
+
+
+
+
+
+# Risks and Blockers
+
+## API Limitations
+The biggest blocker for this app is by far Amadeus API: an outdated and slow API. It does not offer the information required for the completion of this project.
+
+## Data availability
+- Incomplete or missing hotel data from Amadeus in certain regions.
+- Google Maps may not return nearby transit stations in low-density areas.
+
+## Lack of knowledge in webscripting
+- Tried webscraping Booking.com to get more information about hotels from different regions and failed.
