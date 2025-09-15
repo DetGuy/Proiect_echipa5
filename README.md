@@ -31,19 +31,19 @@ pip install -r requirements.txt
 # BACKLOG
 
 MUST:
-- Integrarea API-uirlor Amadeus si Google Maps
-- conversie valutara(pentru aceasta aplicatie orice moneda este schimbata in euro)
-- Validare date utilizator
+- Integration of the Amadeus and Google Maps APIs
+- currency conversion(change everything to euro)
+- Data user validation
       
 SHOULD: 
-- Afisare rating hotel
-- Afisare cea mai apropiata statie
-- Un fisiera (de preferat .txt) in care sa fie salvat istoricul de cazari
-- Tratarea erorilor intr-un mod elegant
+- Display hotel rating
+- Show the nearest public transport station
+- Save booking history to a file (preferably .txt)
+- Handle errors gracefully and informatively
 
 COULD:
-- Notificari reduceri
-- Sugestii turistice pentru orasul pe care dorim sa il vizitam
+- Offer notifications and alerts
+- Tourist suggestions for the selected city
 
 
 # Implementation roadmap for requirements
@@ -67,10 +67,10 @@ COULD:
 # Relevant Architecture Documents
 
 ## Foldere BACKEND
-- baza.py: punctul de intrare, interacțiune cu utilizatorul
-- transport.py: caută stații de transport și calculează distanțe
-- schimb_euro.py: conversie valutară
-- .env: stochează cheile API
+- baza.py: entry point: the main program that gives the info for the hotels in each city
+- transport.py: search for the nearest transit station and return the walking duration from hotel to nearest station
+- schimb_euro.py: currency conversion
+- .env: keeps the API keys private
 
 
 
