@@ -47,7 +47,22 @@ COULD:
 
 
 # Implementation roadmap for requirements
-
+## Milestone 1
+      - Create a code using Amadeus API that will have the name of a city as an input and return 5 hotels(any) from that city
+## Milestone 2
+      - Add the feature to input the check in and out dates and check availability during that period
+## Milestone 3
+      - Make the code return the rating and price of each accomodation
+## Milestone 4
+      - Write a function that will find the nearest transit station to each hotel
+## Milestone 5
+      - Convert all currency to euro, regardless of region
+## Milestone 5
+      - "Create a User Account" option and add each account to a database
+## Milestone 6
+      - Create a user-friendly interface that will make it easier to use the app(frontend)
+## Milestone 7
+      - link everything together
 
 # Relevant Architecture Documents
 
