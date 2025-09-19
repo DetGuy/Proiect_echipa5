@@ -24,9 +24,13 @@ This project is a Python-based application designed to assist users in identifyi
 ## Setup
 pip install -r requirements.txt
 
+It is recommended to use a virtual environment such as conda or venv to work or see this project. We used venv especially for the backend part to keep things organized between multiple projects. To create a Python virtual environment do the following:
+- clone the project from github to a specified folder 
+- cd backend (navigate to the backend part)
+- python3 -m venv venv
+- source venv/bin/activate (you also have to have venv installed for this to work)
 
-
-
+Create a .env file in the root of the cloned project with all the necessary keys that are used in the project.
 
 # BACKLOG
 
