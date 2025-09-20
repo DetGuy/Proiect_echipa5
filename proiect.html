@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CasaDeÎnchiriat • Cazare & Apartamente în România</title>
+  <meta name="description" content="Caută, compară și rezervă apartamente, case și cabane în toată România. Front‑end complet demonstrativ, fără backend, dar pregătit pentru integrare API."/>
+  <style>
+    /*
+      =============================================================
+      CasaDeÎnchiriat — Front‑end single‑file (v1)
+      -------------------------------------------------------------
+      ✔ Total single‑file: HTML + CSS + JS, fără dependențe externe
+      ✔ UX modern: dark mode, responsive, accesibil
+      ✔ Funcționalități:
+         - Căutare (destinație, date, oaspeți), sortare, filtre
+         - Listări cu carduri, detalii proprietate în modal
+         - Favoritare (Salvate), coș de rezervări multi‑proprietate
+         - Autentificare + înregistrare (localStorage) + profil
+         - Recenzii & rating; calcul preț (taxe, servicii, cupon)
+         - Checkout (card cu validare Luhn) + „Rezervările mele”
+         - Persistență în localStorage (session, users, cart, etc.)
+      ✔ Arhitectură pregătită pentru backend:
+         În fișierul JS există obiectul API care simulează apeluri.
+         Pentru integrare, înlocuiți implementările cu fetch() către
+         endpoint‑urile voastre.
+      -------------------------------------------------------------
+      NOTE:
+      - Toate textele vizibile sunt în limba română.
+      - Imaginile proprietăților sunt SVG‑uri generate dinamic (data URI)
+        ca să rămânem 100% standalone. Le puteți înlocui ulterior cu URL‑uri reale.
+      - Inputurile de dată folosesc <input type="date"> pentru simplitate.
+    =============================================================
+    */
+
+    :root {
+      --bg: #0b1321;
+      --card: #101a30;
+      --muted: #2a3759;
+      --text: #e8ecf7;
+      --text-dim: #b8c2df;
+      --brand: #6ea8fe;
+      --brand-2: #9ad0ff;
+      --accent: #7ef0c1;
+      --danger: #ff6b6b;
+      --warning: #ffd166;
+      --success: #2dd4bf;
+      --shadow: rgba(0,0,0,.35);
+    }
+
+    .light {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --muted: #e8ecf7;
+      --text: #0b1321;
+      --text-dim: #445072;
+      --brand: #2459ff;
+      --brand-2: #5a83ff;
+      --accent: #17b890;
+      --danger: #d7263d;
+      --warning: #f2a900;
+      --success: #0ea5a3;
+      --shadow: rgba(18,31,64,.15);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu;
+      background: var(--bg); color: var(--text);
+    }
+
+    a { color: var(--brand-2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Layout */
+    header.nav {
+      position: sticky; top: 0; z-index: 1000; backdrop-filter: saturate(1.2) blur(6px);
+      background: color-mix(in oklab, var(--bg) 86%, transparent);
+      border-bottom: 1px solid color-mix(in oklab, var(--muted) 70%, transparent);
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .grow { flex: 1; }
+    .spacer { flex: 1 1 auto; }
+
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .4px; }
+    .brand svg { width: 28px; height: 28px; }
+
+    .chip { padding: 8px 12px; border-radius: 999px; background: var(--muted); color: var(--text);
+      display: inline-flex; align-items: center; gap: 8px; border: 1px solid color-mix(in oklab, var(--muted) 50%, transparent);
+    }
+    .chip input, .chip select { background: transparent; border: none; color: var(--text); outline: none; }
+    input::placeholder { color: var(--text-dim); }
+
+    .btn { appearance: none; border: 0; cursor: pointer; border-radius: 12px; padding: 10px 14px; font-weight: 600; box-shadow: 0 6px 18px var(--shadow);
+      background: var(--brand); color: white; transition: transform .04s ease, filter .2s ease, background .2s; }
+    .btn:hover { filter: brightness(1.05); }
+    .btn:active { transform: translateY(1px); }
+    .btn.ghost { background: var(--card); color: var(--text); border: 1px solid var(--muted); box-shadow: none; }
+    .btn.warn { background: var(--danger); }
+    .btn.ok { background: var(--success); }
+
+    .badge { font-size: 12px; background: var(--brand-2); color: white; padding: 2px 7px; border-radius: 999px; }
+
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+    .col-12{ grid-column: span 12; } .col-8{ grid-column: span 8; } .col-6{ grid-column: span 6; } .col-4{ grid-column: span 4; } .col-3{ grid-column: span 3; } .col-2{ grid-column: span 2; }
+    @media (max-width: 960px){ .col-md-12{ grid-column: span 12 !important; } }
+
+    /* Cards */
+    .card { background: var(--card); border: 1px solid color-mix(in oklab, var(--muted) 60%, transparent); border-radius: 18px; overflow: clip; box-shadow: 0 6px 20px var(--shadow); }
+    .card .media { aspect-ratio: 16/10; background: var(--muted); position: relative; }
+    .card .media img{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .card .content { padding: 14px; display: grid; gap: 8px; }
+
+    /* Listing meta */
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; color: var(--text-dim); font-size: 13px; }
+
+    /* Toolbar */
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    /* Modal */
+    dialog { border: none; border-radius: 18px; width: min(940px, 96vw); padding: 0; box-shadow: 0 14px 60px var(--shadow); background: var(--card); color: var(--text); }
+    dialog::backdrop{ backdrop-filter: blur(3px); background: rgba(0,0,0,.45); }
+    .modal-head { padding: 14px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--muted); }
+    .modal-body { padding: 16px; }
+
+    .close-x { margin-left: auto; background: transparent; border: 0; color: var(--text); font-size: 22px; cursor: pointer; }
+
+    /* Drawer (cart/user) */
+    .drawer { position: fixed; inset: 0 0 0 auto; width: min(480px, 96vw); transform: translateX(110%); transition: transform .28s ease; z-index: 1200; box-shadow: -10px 0 30px var(--shadow); background: var(--card); border-left: 1px solid var(--muted); display: flex; flex-direction: column; }
+    .drawer.open { transform: translateX(0); }
+    .drawer .head { padding: 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--muted); }
+    .drawer .body { padding: 16px; overflow: auto; display: grid; gap: 12px; }
+    .drawer .foot { padding: 16px; border-top: 1px solid var(--muted); display: grid; gap: 8px; }
+
+    /* Form */
+    .field { display: grid; gap: 6px; }
+    .field label { font-size: 13px; color: var(--text-dim); }
+    .field input, .field select, .field textarea { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--muted); background: color-mix(in oklab, var(--card) 90%, black 10%); color: var(--text); outline: none; }
+    .field input:focus, .field select:focus, .field textarea:focus{ border-color: var(--brand-2); }
+
+    .inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    .pill { padding: 6px 10px; border: 1px solid var(--muted); border-radius: 999px; cursor: pointer; user-select: none; }
+    .pill[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: white; }
+
+    /* Toast */
+    .toast { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 1200; }
+    .toast .msg { background: var(--card); border: 1px solid var(--muted); padding: 12px 14px; border-radius: 12px; box-shadow: 0 6px 20px var(--shadow); }
+
+    /* Footer */
+    footer { margin-top: 48px; padding: 28px 0; background: color-mix(in oklab, var(--muted) 35%, transparent); border-top: 1px solid var(--muted); }
+
+    /* Helpers */
+    .muted { color: var(--text-dim); }
+    .right { text-align: right; }
+    .hidden { display: none !important; }
+
+    /* Simple table */
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--muted); text-align: left; }
+
+    /* Accessible focus ring */
+    :focus-visible { outline: 2px dashed var(--brand-2); outline-offset: 2px; border-radius: 8px; }
+  </style>
+</head>
+<body class="light">
+  <header class="nav" role="banner" aria-label="Bara de navigare">
+    <div class="container row">
+      <div class="brand" aria-label="Siglă CasaDeÎnchiriat" style="cursor:pointer" onclick="scrollToTop()">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 19.5v-9Z" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M9 21v-6a3 3 0 0 1 6 0v6" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+        <span>CasaDeÎnchiriat</span>
+        <span class="badge" title="Demo complet">Demo</span>
+      </div>
+      
+      <div class="spacer"></div>
+
+      <!-- Căutare rapidă în navbar -->
+      <form id="quickSearch" class="chip row" role="search" aria-label="Căutare rapidă" onsubmit="event.preventDefault(); performSearchFromToolbar()">
+        <input id="qs-dest" aria-label="Destinație" placeholder="Destinație (ex: Brașov, Cluj)"/>
+        <input id="qs-in" type="date" aria-label="Check‑in"/>
+        <input id="qs-out" type="date" aria-label="Check‑out"/>
+        <select id="qs-guests" aria-label="Oaspeți">
+          <option value="1">1 oaspete</option>
+          <option value="2" selected>2 oaspeți</option>
+          <option value="3">3 oaspeți</option>
+          <option value="4">4 oaspeți</option>
+          <option value="5">5 oaspeți</option>
+          <option value="6">6 oaspeți</option>
+        </select>
+        <button class="btn" aria-label="Caută">Caută</button>
+      </form>
+
+      <div class="spacer"></div>
+
+      <button class="btn ghost" id="toggleTheme" aria-label="Schimbă tema" title="Mod luminos/întunecat" onclick="toggleTheme()">🌙</button>
+      <button class="btn ghost" id="btnSaved" onclick="openSaved()" aria-haspopup="true" aria-expanded="false" title="Salvate">❤ <span id="savedCount" class="badge">0</span></button>
+      <button class="btn ghost" id="btnCart" onclick="toggleCart(true)" aria-haspopup="true" aria-expanded="false" title="Coș">🧺 <span id="cartCount" class="badge">0</span></button>
+      <button class="btn" id="btnLogin" onclick="openAuth()" aria-haspopup="dialog" aria-controls="authModal">Autentificare</button>
+      <div id="userMenu" class="hidden">
+        <button class="btn" onclick="toggleUser(true)">Contul meu</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" id="main" tabindex="-1">
+    <!-- Formular principal de căutare / filtre -->
+    <section aria-labelledby="sect-search" class="card" style="margin-top:16px;">
+      <div class="grid" style="padding: 14px; align-items: end;">
+        <div class="col-3 col-md-12 field">
+          <label for="dest">Destinație</label>
+          <input id="dest" placeholder="Oraș, zonă sau proprietate"/>
+        </div>
+        <div class="col-2 col-md-12 field">
+          <label for="checkIn">Check‑in</label>
+          <input id="checkIn" type="date"/>
+        </div>
+        <div class="col-2 col-md-12 field">
+          <label for="checkOut">Check‑out</label>
+          <input id="checkOut" type="date"/>
+        </div>
+        <div class="col-2 col-md-12 field">
+          <label for="guests">Oaspeți</label>
+          <select id="guests">
+            <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option>
+          </select>
+        </div>
+        <div class="col-3 col-md-12 field">
+          <label>&nbsp;</label>
+          <div class="inline">
+            <button class="btn" onclick="performSearch()">Caută</button>
+            <button class="btn ghost" onclick="resetFilters()">Resetează</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toolbar" style="padding: 0 14px 14px 14px; justify-content: space-between;">
+        <div class="inline" role="group" aria-label="Filtre rapide">
+          <span class="pill" role="button" tabindex="0" aria-pressed="false" data-filter="wifi" onclick="toggleAmenity(this)">Wi‑Fi</span>
+          <span class="pill" role="button" tabindex="0" aria-pressed="false" data-filter="parcare" onclick="toggleAmenity(this)">Parcare</span>
+          <span class="pill" role="button" tabindex="0" aria-pressed="false" data-filter="pet" onclick="toggleAmenity(this)">Animale OK</span>
+          <span class="pill" role="button" tabindex="0" aria-pressed="false" data-filter="bucatarie" onclick="toggleAmenity(this)">Bucătărie</span>
+          <span class="pill" role="button" tabindex="0" aria-pressed="false" data-filter="balcon" onclick="toggleAmenity(this)">Balcon</span>
+        </div>
+        <div class="inline">
+          <label class="muted">Sortare:</label>
+          <select id="sortBy" onchange="renderListings()">
+            <option value="relevant">Relevanță</option>
+            <option value="pret_asc">Preț ↑</option>
+            <option value="pret_desc">Preț ↓</option>
+            <option value="rating_desc">Rating</option>
+          </select>
+          <label class="muted">Preț/noapte</label>
+          <input id="priceMin" type="number" min="0" placeholder="Min" style="width:90px" oninput="renderListings()"/>
+          <input id="priceMax" type="number" min="0" placeholder="Max" style="width:90px" oninput="renderListings()"/>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rezultate -->
+    <section style="margin-top:16px">
+      <div id="results" class="grid" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container grid">
+      <div class="col-4 col-md-12">
+        <strong>CasaDeÎnchiriat</strong>
+        <p class="muted">Platformă demonstrativă front‑end, pregătită pentru integrare cu backend (autentificare, listări, plăți).</p>
+      </div>
+      <div class="col-4 col-md-12">
+        <strong>Linkuri utile</strong>
+        <ul>
+          <li><a href="#" onclick="openAuth()">Autentificare / Cont nou</a></li>
+          <li><a href="#" onclick="toggleUser(true)">Contul meu</a></li>
+          <li><a href="#" onclick="toggleCart(true)">Coșul tău</a></li>
+        </ul>
+      </div>
+      <div class="col-4 col-md-12">
+        <strong>Legal</strong>
+        <p class="muted">Prin rezervare accepți <a href="#" onclick="alert('Termenii sunt un placeholder în această versiune demo.')">Termenii</a> și <a href="#" onclick="alert('Politica de confidențialitate este un placeholder în această versiune demo.')">Politica de confidențialitate</a>.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- DIALOG: Detalii proprietate -->
+  <dialog id="propModal" aria-label="Detalii proprietate">
+    <div class="modal-head">
+      <strong id="propTitle">Detalii</strong>
+      <button class="close-x" onclick="closeProp()" aria-label="Închide">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid">
+        <div class="col-8 col-md-12">
+          <div id="propGallery" class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 8px;"></div>
+          <p id="propDesc" class="muted" style="margin-top:8px"></p>
+          <div class="meta" id="propMeta"></div>
+          <h3>Recenzii</h3>
+          <div id="propReviews" class="grid"></div>
+          <div id="addReview" class="hidden">
+            <div class="inline" style="gap:6px; align-items:center;">
+              <label for="revRating" class="muted">Nota</label>
+              <select id="revRating"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select>
+              <input id="revText" placeholder="Scrie o recenzie..." style="flex:1"/>
+              <button class="btn" onclick="submitReview()">Trimite</button>
+            </div>
+          </div>
+        </div>
+        <div class="col-4 col-md-12 card" style="padding: 12px; align-self: start;">
+          <div class="field">
+            <label>Check‑in</label>
+            <input id="pIn" type="date"/>
+          </div>
+          <div class="field">
+            <label>Check‑out</label>
+            <input id="pOut" type="date"/>
+          </div>
+          <div class="field">
+            <label>Oaspeți</label>
+            <select id="pGuests"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+          </div>
+          <div class="inline" style="justify-content: space-between;">
+            <div>
+              <div><strong id="pPrice">0 RON</strong> <span class="muted">/ noapte</span></div>
+              <small id="pFees" class="muted">+ taxe & servicii</small>
+            </div>
+            <button class="btn" onclick="addToCartFromProp()">Adaugă în coș</button>
+          </div>
+          <button class="btn ghost" style="margin-top:8px" onclick="toggleFav(currentPropId)">❤ Salvează</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- DRAWER: Coș -->
+  <aside id="cartDrawer" class="drawer" aria-label="Coș de rezervări" aria-hidden="true">
+    <div class="head">
+      <strong>Coșul tău</strong>
+      <button class="close-x" onclick="toggleCart(false)" aria-label="Închide">✕</button>
+    </div>
+    <div class="body" id="cartItems"></div>
+    <div class="foot">
+      <div class="inline"><input id="coupon" placeholder="Cupon (ex: BINEAIVENIT)" class="grow"/><button class="btn ghost" onclick="applyCoupon()">Aplică</button></div>
+      <div class="inline" style="justify-content: space-between;">
+        <div class="muted">Total</div>
+        <div><strong id="cartTotal">0 RON</strong></div>
+      </div>
+      <button class="btn ok" onclick="openCheckout()">Finalizează</button>
+    </div>
+  </aside>
+
+  <!-- DRAWER: Utilizator -->
+  <aside id="userDrawer" class="drawer" aria-label="Panou utilizator" aria-hidden="true">
+    <div class="head">
+      <strong>Contul meu</strong>
+      <button class="close-x" onclick="toggleUser(false)" aria-label="Închide">✕</button>
+    </div>
+    <div class="body">
+      <div id="userInfo"></div>
+      <h3>Rezervările mele</h3>
+      <div id="myBookings"></div>
+      <h3>Favorite</h3>
+      <div id="myFavs"></div>
+      <button class="btn warn" onclick="logout()">Deconectare</button>
+    </div>
+  </aside>
+
+  <!-- DIALOG: Autentificare -->
+  <dialog id="authModal" aria-label="Autentificare / Cont nou">
+    <div class="modal-head">
+      <strong id="authTitle">Autentificare</strong>
+      <button class="close-x" onclick="closeAuth()" aria-label="Închide">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid">
+        <form class="col-6 col-md-12 card" style="padding: 14px;" onsubmit="event.preventDefault(); doLogin()">
+          <h3>Autentificare</h3>
+          <div class="field"><label>Email</label><input id="loginEmail" type="email" required placeholder="nume@exemplu.ro"/></div>
+          <div class="field"><label>Parolă</label><input id="loginPass" type="password" required minlength="6"/></div>
+          <button class="btn">Intră în cont</button>
+        </form>
+        <form class="col-6 col-md-12 card" style="padding: 14px;" onsubmit="event.preventDefault(); doRegister()">
+          <h3>Cont nou</h3>
+          <div class="field"><label>Nume</label><input id="regName" required/></div>
+          <div class="field"><label>Email</label><input id="regEmail" type="email" required/></div>
+          <div class="field"><label>Parolă</label><input id="regPass" type="password" minlength="6" required/></div>
+          <button class="btn">Creează cont</button>
+        </form>
+      </div>
+      <p class="muted">Datele sunt stocate local (demo). Pentru producție, conectați formularele la endpoint‑urile backendului (vezi obiectul <code>API</code> din script).</p>
+    </div>
+  </dialog>
+
+  <!-- DIALOG: Checkout -->
+  <dialog id="checkoutModal" aria-label="Plată & date de facturare">
+    <div class="modal-head">
+      <strong>Finalizare rezervare</strong>
+      <button class="close-x" onclick="closeCheckout()" aria-label="Închide">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid">
+        <div class="col-8 col-md-12">
+          <h3>Detalii personale</h3>
+          <div class="grid card" style="padding: 12px;">
+            <div class="col-6 col-md-12 field"><label>Prenume</label><input id="billFirst" required/></div>
+            <div class="col-6 col-md-12 field"><label>Nume</label><input id="billLast" required/></div>
+            <div class="col-6 col-md-12 field"><label>Telefon</label><input id="billPhone" required/></div>
+            <div class="col-6 col-md-12 field"><label>Țara</label><input id="billCountry" value="România"/></div>
+            <div class="col-12 field"><label>Adresă</label><input id="billAddr" required/></div>
+          </div>
+
+          <h3>Plată</h3>
+          <div class="grid card" style="padding: 12px;">
+            <div class="col-8 col-md-12 field"><label>Număr card</label><input id="cardNumber" inputmode="numeric" placeholder="4111 1111 1111 1111" oninput="formatCard(this)"/></div>
+            <div class="col-2 col-md-6 field"><label>Expiră</label><input id="cardExp" placeholder="MM/YY" maxlength="5" oninput="formatExp(this)"/></div>
+            <div class="col-2 col-md-6 field"><label>CVC</label><input id="cardCvc" inputmode="numeric" maxlength="4"/></div>
+          </div>
+
+          <label class="inline" style="margin:12px 0; gap:6px"><input type="checkbox" id="agree"/> Accept termenii și condițiile</label>
+          <button class="btn ok" onclick="placeOrder()">Plătește și rezervă</button>
+        </div>
+        <div class="col-4 col-md-12 card" style="padding: 12px; align-self:start;">
+          <h3>Rezumat</h3>
+          <div id="checkoutSummary"></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- TOASTS -->
+  <div class="toast" id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    /* ======================================
+       UTILITARE & STATE
+    ====================================== */
+    const $$ = sel => document.querySelector(sel);
+    const $$$ = sel => Array.from(document.querySelectorAll(sel));
+    const fmt = n => new Intl.NumberFormat('ro-RO', { style:'currency', currency:'RON', maximumFractionDigits:0 }).format(n);
+    const todayISO = () => new Date().toISOString().slice(0,10);
+    const parseDate = s => s ? new Date(s + 'T12:00:00') : null; // neutral TZ
+    const daysBetween = (a,b) => Math.max(0, Math.round((parseDate(b) - parseDate(a)) / (1000*60*60*24)));
+    const uid = (p='id') => p + '_' + Math.random().toString(36).slice(2,9);
+
+    const DB = {
+      get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+      set: (k, v) => localStorage.setItem(k, JSON.stringify(v))
+    };
+
+    const state = {
+      listings: [],
+      filters: { dest:'', in:'', out:'', guests:2, amenities: new Set(), priceMin:null, priceMax:null, sort:'relevant' },
+      cart: DB.get('cdx_cart', []),
+      saved: DB.get('cdx_saved', []),
+      users: DB.get('cdx_users', []),
+      session: DB.get('cdx_session', null),
+      reviews: DB.get('cdx_reviews', {}), // {listingId: [{userId, name, rating, text, date}]}
+      bookings: DB.get('cdx_bookings', []),
+      coupon: null,
+    };
+
+    function persist(){
+      DB.set('cdx_cart', state.cart);
+      DB.set('cdx_saved', state.saved);
+      DB.set('cdx_users', state.users);
+      DB.set('cdx_session', state.session);
+      DB.set('cdx_reviews', state.reviews);
+      DB.set('cdx_bookings', state.bookings);
+    }
+
+    /* ======================================
+       API Simulat — înlocuiți cu backendul vostru
+    ====================================== */
+    const API = {
+      async login(email, pass){
+        await sleep(150);
+        const u = state.users.find(u => u.email===email && u.pass===pass);
+        if(!u) throw new Error('Email sau parolă incorecte');
+        state.session = { id: u.id, name: u.name, email: u.email };
+        persist();
+        return state.session;
+      },
+      async register(name, email, pass){
+        await sleep(150);
+        if(state.users.some(u => u.email===email)) throw new Error('Există deja un cont cu acest email');
+        const u = { id: uid('usr'), name, email, pass };
+        state.users.push(u);
+        persist();
+        return true;
+      },
+      async listListings(){
+        await sleep(120);
+        return state.listings;
+      },
+      async createBooking(order){
+        await sleep(200);
+        state.bookings.push(order);
+        persist();
+        return { ok:true, id: uid('bk') };
+      }
+    };
+
+    function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+    /* ======================================
+       Seed‑uri pentru listări (imagine SVG data URI)
+    ====================================== */
+    function svgPlaceholder(title, city, hue){
+      const svg = encodeURIComponent(
+        `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'>`+
+        `<defs><linearGradient id='g' x1='0' x2='1'><stop stop-color='hsl(${hue},70%,55%)'/><stop offset='1' stop-color='hsl(${(hue+40)%360},70%,45%)'/></linearGradient></defs>`+
+        `<rect width='800' height='500' fill='url(#g)'/>`+
+        `<g fill='white' font-family='system-ui' font-weight='700'>`+
+        `<text x='40' y='110' font-size='48'>${title}</text>`+
+        `<text x='40' y='170' font-size='28' opacity='.85'>${city}</text>`+
+        `</g>`+
+        `<circle cx='740' cy='70' r='40' fill='rgba(255,255,255,.25)'/>`+
+        `</svg>`
+      );
+      return `data:image/svg+xml;charset=utf-8,${svg}`;
+    }
+
+    const seeded = [
+      { id:'l1', title:'Studio Central Unirii', city:'București', country:'România', type:'Apartament', price:210, guests:2, beds:1, baths:1, rating:4.6, 
+        amenities:['wifi','bucatarie','balcon'], desc:'Studio luminos, aproape de metrou și restaurante.', lat:44.4268, lon:26.1025 },
+      { id:'l2', title:'Apartament Panorama', city:'Cluj‑Napoca', country:'România', type:'Apartament', price:330, guests:4, beds:2, baths:1, rating:4.8, 
+        amenities:['wifi','parcare','bucatarie'], desc:'Vedere superbă, 10 min de centru.', lat:46.7712, lon:23.6236 },
+      { id:'l3', title:'Cabana Pădurea Verde', city:'Brașov', country:'România', type:'Cabana', price:420, guests:6, beds:3, baths:2, rating:4.9, 
+        amenities:['wifi','parcare','bucatarie','pet'], desc:'Cabana rustică la marginea pădurii.', lat:45.6579, lon:25.6012 },
+      { id:'l4', title:'Loft Industrial', city:'Timișoara', country:'România', type:'Loft', price:280, guests:3, beds:2, baths:1, rating:4.5, 
+        amenities:['wifi','balcon'], desc:'Design industrial, aproape de Iosefin.', lat:45.7489, lon:21.2087 },
+      { id:'l5', title:'Casele Sibiului', city:'Sibiu', country:'România', type:'Casă', price:370, guests:5, beds:3, baths:2, rating:4.7, 
+        amenities:['wifi','parcare','bucatarie','balcon'], desc:'Casă tradițională renovată cu gust.', lat:45.793, lon:24.1213 },
+      { id:'l6', title:'Family Flat Copou', city:'Iași', country:'România', type:'Apartament', price:260, guests:4, beds:2, baths:1, rating:4.4, 
+        amenities:['wifi','bucatarie','parcare'], desc:'Ideal pentru familii, lângă parc.', lat:47.1585, lon:27.6014 },
+      { id:'l7', title:'Sea Breeze', city:'Constanța', country:'România', type:'Apartament', price:450, guests:4, beds:2, baths:2, rating:4.6, 
+        amenities:['wifi','balcon','parcare'], desc:'La 3 minute de plajă.', lat:44.1598, lon:28.6348 },
+      { id:'l8', title:'Art Deco Retreat', city:'Oradea', country:'România', type:'Apartament', price:240, guests:2, beds:1, baths:1, rating:4.3, 
+        amenities:['wifi','bucatarie'], desc:'Clădire Art Deco, aproape de centru.', lat:47.0722, lon:21.9217 },
+    ].map((x,i)=>({ ...x, images:[svgPlaceholder(x.title,x.city, (i*45)%360), svgPlaceholder(x.title+' — 2',x.city,(i*45+20)%360), svgPlaceholder(x.title+' — 3',x.city,(i*45+40)%360)] }));
+
+    // Inițializează listările în memorie (o singură dată)
+    if(!DB.get('cdx_listings')) DB.set('cdx_listings', seeded);
+    state.listings = DB.get('cdx_listings', seeded);
+
+    /* ======================================
+       RENDER lista de proprietăți
+    ====================================== */
+    function renderListings(){
+      const wrap = $$('#results');
+      wrap.innerHTML = '';
+      const q = (state.filters.dest||'').trim().toLowerCase();
+      const inD = state.filters.in; const outD = state.filters.out;
+      const g = Number(state.filters.guests||2);
+      const min = state.filters.priceMin ? Number(state.filters.priceMin) : null;
+      const max = state.filters.priceMax ? Number(state.filters.priceMax) : null;
+      const ams = state.filters.amenities;
+
+      let list = state.listings.filter(l => {
+        const hit = !q || l.city.toLowerCase().includes(q) || l.title.toLowerCase().includes(q) || l.type.toLowerCase().includes(q);
+        const cap = !g || l.guests >= g;
+        const price = (!min || l.price>=min) && (!max || l.price<=max);
+        const am = ams.size===0 || [...ams].every(a => l.amenities.includes(a));
+        const avail = (!inD||!outD) ? true : isAvailable(l.id, inD, outD);
+        return hit && cap && price && am && avail;
+      });
+
+      if(state.filters.sort==='pret_asc') list.sort((a,b)=>a.price-b.price);
+      else if(state.filters.sort==='pret_desc') list.sort((a,b)=>b.price-a.price);
+      else if(state.filters.sort==='rating_desc') list.sort((a,b)=>b.rating-a.rating);
+
+      if(list.length===0){
+        wrap.innerHTML = `<div class="card" style="padding:18px">Nu am găsit rezultate. Ajustează filtrele sau datele.</div>`;
+        return;
+      }
+
+      for(const l of list){
+        const card = document.createElement('article');
+        card.className = 'card col-3 col-md-12';
+        card.innerHTML = `
+          <div class="media" role="img" aria-label="${l.title}">
+            <img src="${l.images[0]}" alt="${l.title}"/>
+            <button title="Salvează" aria-label="Salvează" class="btn ghost" style="position:absolute; right:8px; top:8px" onclick="toggleFav('${l.id}')">❤</button>
+          </div>
+          <div class="content">
+            <div class="inline" style="justify-content: space-between; align-items: start;">
+              <div>
+                <strong>${l.title}</strong>
+                <div class="muted">${l.city} • ${l.type}</div>
+              </div>
+              <div title="Rating">⭐ ${l.rating.toFixed(1)}</div>
+            </div>
+            <div class="meta">
+              <span>${l.guests} oaspeți</span>
+              <span>${l.beds} paturi</span>
+              <span>${l.baths} băi</span>
+            </div>
+            <div class="inline" style="justify-content: space-between;">
+              <div><strong>${fmt(l.price)}</strong> <span class="muted">/ noapte</span></div>
+              <div class="inline">
+                <button class="btn ghost" onclick="openProp('${l.id}')">Detalii</button>
+                <button class="btn" onclick="addToCartQuick('${l.id}')">Rezervă</button>
+              </div>
+            </div>
+          </div>`;
+        wrap.appendChild(card);
+      }
+
+      updateBadges();
+    }
+
+    function updateBadges(){
+      $$('#cartCount').textContent = state.cart.length;
+      $$('#savedCount').textContent = state.saved.length;
+      if(state.session){
+        $$('#btnLogin').classList.add('hidden');
+        $$('#userMenu').classList.remove('hidden');
+      } else {
+        $$('#btnLogin').classList.remove('hidden');
+        $$('#userMenu').classList.add('hidden');
+      }
+    }
+
+    /* ======================================
+       DISPONIBILITATE & COȘ
+    ====================================== */
+    function isAvailable(listingId, inD, outD){
+      // În demo presupunem disponibilitate mare. Putem marca indisponibil random.
+      const seed = listingId.charCodeAt(0) + listingId.charCodeAt(1);
+      const day = new Date(inD||todayISO()).getDate();
+      const blocked = (seed + day) % 11 === 0; // aproximativ 1/11 din cazuri
+      return !blocked;
+    }
+
+    function addToCart(listing, inD, outD, guests){
+      if(!inD || !outD){ toast('Alege întâi datele pentru sejur.'); return; }
+      const nights = daysBetween(inD, outD);
+      if(nights<=0){ toast('Interval de date invalid.'); return; }
+      const fees = calcFees(listing.price, nights);
+      const item = { id: uid('ci'), listingId: listing.id, title: listing.title, city: listing.city, price: listing.price, nights, in: inD, out: outD, guests: Number(guests||2), fees };
+      state.cart.push(item); persist();
+      toast('Adăugat în coș');
+      updateBadges();
+      toggleCart(true);
+      renderCart();
+    }
+
+    function addToCartQuick(id){
+      const l = state.listings.find(x=>x.id===id);
+      const inD = $$('#checkIn').value || todayISO();
+      const outD = $$('#checkOut').value || addDaysISO(inD, 2);
+      addToCart(l, inD, outD, state.filters.guests||2);
+    }
+
+    function addToCartFromProp(){
+      const l = state.listings.find(x=>x.id===currentPropId);
+      addToCart(l, $$('#pIn').value, $$('#pOut').value, $$('#pGuests').value);
+    }
+
+    function removeFromCart(id){
+      state.cart = state.cart.filter(x=>x.id!==id); persist(); renderCart(); updateBadges();
+    }
+
+    function renderCart(){
+      const box = $$('#cartItems'); box.innerHTML='';
+      if(state.cart.length===0){ box.innerHTML = `<div class='muted'>Coșul este gol.</div>`; $$('#cartTotal').textContent = fmt(0); return; }
+      let total = 0;
+      for(const it of state.cart){
+        const sum = it.price*it.nights + it.fees.service + it.fees.clean + it.fees.taxes;
+        total += sum;
+        const row = document.createElement('div'); row.className='card'; row.style.padding='10px';
+        row.innerHTML = `
+          <div class="inline" style="justify-content: space-between; align-items:start; gap:10px">
+            <div>
+              <div><strong>${it.title}</strong> <span class="muted">(${it.city})</span></div>
+              <div class="muted">${it.in} → ${it.out} • ${it.nights} nopți • ${it.guests} oaspeți</div>
+              <div class="muted">Servicii: ${fmt(it.fees.service)} • Curățenie: ${fmt(it.fees.clean)} • TVA: ${fmt(it.fees.taxes)}</div>
+            </div>
+            <div class="right">
+              <div><strong>${fmt(sum)}</strong></div>
+              <button class="btn ghost" onclick="removeFromCart('${it.id}')">Șterge</button>
+            </div>
+          </div>`;
+        box.appendChild(row);
+      }
+      const discount = state.coupon ? Math.round(total*state.coupon.percent) : 0;
+      $$('#cartTotal').textContent = discount? `${fmt(total-discount)} (−${fmt(discount)})` : fmt(total);
+    }
+
+    function calcFees(pricePerNight, nights){
+      const subtotal = pricePerNight*nights;
+      const service = Math.round(subtotal*0.08);
+      const clean = Math.round(Math.max(50, pricePerNight*0.2));
+      const taxes = Math.round(subtotal*0.09);
+      return { service, clean, taxes };
+    }
+
+    function applyCoupon(){
+      const code = ($$('#coupon').value||'').trim().toUpperCase();
+      const coupons = { 'BINEAIVENIT': .10, 'ROMANIA25': .25 };
+      if(!coupons[code]){ toast('Cupon invalid'); state.coupon=null; renderCart(); return; }
+      state.coupon = { code, percent: coupons[code] }; toast('Cupon aplicat'); renderCart();
+    }
+
+    /* ======================================
+       PROPRIETATE (modal)
+    ====================================== */
+    let currentPropId = null;
+    function openProp(id){
+      currentPropId = id;
+      const l = state.listings.find(x=>x.id===id);
+      $$('#propTitle').textContent = `${l.title} — ${l.city}`;
+      const gal = $$('#propGallery'); gal.innerHTML='';
+      l.images.forEach(src => {
+        const d = document.createElement('div'); d.className='card'; d.style.overflow='hidden';
+        d.innerHTML = `<img src='${src}' alt='${l.title}'/>`;
+        gal.appendChild(d);
+      });
+      $$('#propDesc').textContent = l.desc;
+      $$('#propMeta').innerHTML = `
+        <span class='pill'>${l.type}</span>
+        <span class='pill'>⭐ ${l.rating}</span>
+        <span class='pill'>${l.guests} oaspeți</span>
+        <span class='pill'>${l.beds} paturi</span>
+        <span class='pill'>${l.baths} băi</span>
+        ${l.amenities.map(a=>`<span class='pill'>${amenityLabel(a)}</span>`).join('')}
+      `;
+
+      $$('#pIn').value = $$('#checkIn').value || todayISO();
+      $$('#pOut').value = $$('#checkOut').value || addDaysISO($$('#pIn').value, 2);
+      $$('#pGuests').value = state.filters.guests||2;
+      $$('#pPrice').textContent = fmt(l.price);
+      $$('#pFees').textContent = `+ ${fmt(calcFees(l.price, 1).service)} servicii, ${fmt(calcFees(l.price,1).clean)} curățenie, ${fmt(calcFees(l.price,1).taxes)} TVA (ex. 1 noapte)`;
+
+      renderReviews(id);
+      $$('#addReview').classList.toggle('hidden', !state.session);
+
+      $$('#propModal').showModal();
+    }
+
+    function closeProp(){ $$('#propModal').close(); }
+
+    function amenityLabel(k){
+      return { wifi:'Wi‑Fi', parcare:'Parcare', pet:'Animale OK', bucatarie:'Bucătărie', balcon:'Balcon' }[k] || k;
+    }
+
+    function renderReviews(id){
+      const box = $$('#propReviews'); box.innerHTML='';
+      const revs = (state.reviews[id]||[]).slice().reverse();
+      if(revs.length===0){ box.innerHTML = `<div class='muted'>Încă nu există recenzii.</div>`; return; }
+      for(const r of revs){
+        const d = document.createElement('div'); d.className='card'; d.style.padding='10px';
+        d.innerHTML = `<div><strong>${r.name}</strong> — ⭐ ${r.rating} <span class='muted'>(${new Date(r.date).toLocaleDateString('ro-RO')})</span></div><div>${esc(r.text)}</div>`;
+        box.appendChild(d);
+      }
+    }
+
+    function submitReview(){
+      const rating = Number($$('#revRating').value||5);
+      const text = ($$('#revText').value||'').trim(); if(!text) return;
+      const u = state.session; if(!u) return;
+      const arr = state.reviews[currentPropId] || [];
+      arr.push({ userId: u.id, name: u.name, rating, text, date: Date.now() });
+      state.reviews[currentPropId] = arr; persist();
+      $$('#revText').value='';
+      // recalculare rating simplă
+      const l = state.listings.find(x=>x.id===currentPropId);
+      const avg = (arr.reduce((s,a)=>s+a.rating, 0) / arr.length);
+      l.rating = Math.round(avg*10)/10; DB.set('cdx_listings', state.listings);
+      renderReviews(currentPropId); renderListings();
+      toast('Mulțumim pentru recenzie!');
+    }
+
+    /* ======================================
+       FAVORITE
+    ====================================== */
+    function toggleFav(id){
+      const i = state.saved.indexOf(id);
+      if(i>=0){ state.saved.splice(i,1); toast('Eliminat din favorite'); }
+      else { state.saved.push(id); toast('Adăugat la favorite'); }
+      persist(); updateBadges();
+    }
+
+    function openSaved(){
+      const favs = state.listings.filter(l=>state.saved.includes(l.id));
+      if(favs.length===0){ toast('Nu ai favorite încă.'); return; }
+      // filtrează după favorite
+      state.filters.dest = ''; $$$('.pill').forEach(p=>p.setAttribute('aria-pressed','false'));
+      $$('#dest').value=''; $$('#priceMin').value=''; $$('#priceMax').value='';
+      const wrap = $$('#results'); wrap.innerHTML='';
+      favs.forEach(l=>{
+        const card = document.createElement('article'); card.className='card col-3 col-md-12';
+        card.innerHTML = `
+          <div class="media"><img src="${l.images[0]}" alt="${l.title}"/></div>
+          <div class="content">
+            <div class="inline" style="justify-content: space-between; align-items: start;">
+              <div><strong>${l.title}</strong><div class="muted">${l.city} • ${l.type}</div></div>
+              <div>⭐ ${l.rating.toFixed(1)}</div>
+            </div>
+            <div class="inline" style="justify-content: space-between;">
+              <div><strong>${fmt(l.price)}</strong> <span class="muted">/ noapte</span></div>
+              <div class="inline">
+                <button class="btn ghost" onclick="openProp('${l.id}')">Detalii</button>
+                <button class="btn" onclick="addToCartQuick('${l.id}')">Rezervă</button>
+              </div>
+            </div>
+          </div>`;
+        wrap.appendChild(card);
+      });
+      updateBadges();
+    }
+
+    /* ======================================
+       CHECKOUT
+    ====================================== */
+    function openCheckout(){ if(state.cart.length===0){ toast('Coșul este gol'); return; } $$('#checkoutModal').showModal(); renderCheckoutSummary(); }
+    function closeCheckout(){ $$('#checkoutModal').close(); }
+
+    function renderCheckoutSummary(){
+      const box = $$('#checkoutSummary'); box.innerHTML='';
+      let total=0; let details='';
+      for(const it of state.cart){
+        const sum = it.price*it.nights + it.fees.service + it.fees.clean + it.fees.taxes; total += sum;
+        details += `<div class='inline' style='justify-content:space-between'><div>${it.title}<div class='muted'>${it.in} → ${it.out} • ${it.nights} nopți</div></div><div>${fmt(sum)}</div></div>`;
+      }
+      const discount = state.coupon ? Math.round(total*state.coupon.percent) : 0;
+      box.innerHTML = details + `<hr/><div class='inline' style='justify-content:space-between'><div>Total</div><div><strong>${fmt(total-discount)}</strong> ${discount?`<span class='muted'>(−${fmt(discount)})</span>`:''}</div></div>`;
+    }
+
+    function formatCard(inp){
+      let v = inp.value.replace(/\D/g,'').slice(0,19);
+      inp.value = v.replace(/(.{4})/g,'$1 ').trim();
+    }
+    function formatExp(inp){
+      let v = inp.value.replace(/\D/g,'').slice(0,4);
+      if(v.length>2) v = v.slice(0,2) + '/' + v.slice(2);
+      inp.value = v;
+    }
+    function validLuhn(num){
+      num = num.replace(/\s+/g,''); if(!/^[0-9]{13,19}$/.test(num)) return false;
+      let s=0; let dbl=false; for(let i=num.length-1;i>=0;i--){ let d=+num[i]; if(dbl){ d*=2; if(d>9)d-=9; } s+=d; dbl=!dbl; }
+      return s%10===0;
+    }
+
+    async function placeOrder(){
+      if(!state.session){ toast('Trebuie să fii autentificat.'); openAuth(); return; }
+      const ok = $$('#agree').checked; if(!ok){ toast('Te rugăm să accepți termenii.'); return; }
+      const cc = $$('#cardNumber').value.trim(); const exp=$$('#cardExp').value.trim(); const cvc=$$('#cardCvc').value.trim();
+      if(!validLuhn(cc)) { toast('Card invalid.'); return; }
+      if(!/^[0-1][0-9]\/[0-9]{2}$/.test(exp)){ toast('Data expirării invalidă.'); return; }
+      if(!/^[0-9]{3,4}$/.test(cvc)){ toast('CVC invalid.'); return; }
+
+      const order = {
+        id: uid('ord'), userId: state.session.id, items: state.cart, total: totalCart(), coupon: state.coupon,
+        billing: { first: $$('#billFirst').value, last: $$('#billLast').value, phone: $$('#billPhone').value, country: $$('#billCountry').value, addr: $$('#billAddr').value },
+        createdAt: Date.now()
+      };
+      await API.createBooking(order);
+      state.cart = []; state.coupon = null; persist();
+      renderCart(); renderCheckoutSummary();
+      toast('Rezervare reușită! Găsești detaliile la „Rezervările mele”.');
+      $$('#checkoutModal').close();
+      toggleUser(true);
+      renderUserPanel();
+    }
+
+    function totalCart(){
+      let t=0; for(const it of state.cart){ t += it.price*it.nights + it.fees.service + it.fees.clean + it.fees.taxes; } if(state.coupon) t -= Math.round(t*state.coupon.percent); return t;
+    }
+
+    /* ======================================
+       USER / AUTH
+    ====================================== */
+    function openAuth(){ $$('#authModal').showModal(); }
+    function closeAuth(){ $$('#authModal').close(); }
+
+    async function doLogin(){
+      try{
+        const s = await API.login($$('#loginEmail').value.trim(), $$('#loginPass').value);
+        toast('Bine ai revenit, '+s.name.split(' ')[0]+'!');
+        closeAuth(); updateBadges();
+      }catch(e){ toast(e.message); }
+    }
+
+    async function doRegister(){
+      try{
+        await API.register($$('#regName').value.trim(), $$('#regEmail').value.trim(), $$('#regPass').value);
+        toast('Cont creat! Te poți autentifica acum.');
+      }catch(e){ toast(e.message); }
+    }
+
+    function logout(){ state.session=null; persist(); updateBadges(); toggleUser(false); toast('Te-ai deconectat.'); }
+
+    function renderUserPanel(){
+      const box = $$('#userInfo');
+      if(!state.session){ box.innerHTML = `<div class='muted'>Nu ești autentificat.</div>`; return; }
+      box.innerHTML = `<div class='card' style='padding:12px'><div><strong>${esc(state.session.name)}</strong></div><div class='muted'>${esc(state.session.email)}</div></div>`;
+      const b = $$('#myBookings'); b.innerHTML='';
+      const mine = state.bookings.filter(x=>x.userId===state.session.id).slice().reverse();
+      if(mine.length===0) b.innerHTML = `<div class='muted'>Încă nu ai rezervări.</div>`;
+      for(const o of mine){
+        const d = document.createElement('div'); d.className='card'; d.style.padding='12px';
+        const items = o.items.map(it=>`${it.title} (${it.in} → ${it.out}, ${it.nights} nopți)`).join('<br/>');
+        d.innerHTML = `<div class='inline' style='justify-content:space-between'><div><strong>Comandă ${o.id}</strong><div class='muted'>${new Date(o.createdAt).toLocaleString('ro-RO')}</div></div><div><strong>${fmt(o.total)}</strong></div></div><div style='margin-top:8px'>${items}</div>`;
+        b.appendChild(d);
+      }
+
+      const favBox = $$('#myFavs'); favBox.innerHTML='';
+      const favs = state.listings.filter(l=>state.saved.includes(l.id));
+      if(favs.length===0) favBox.innerHTML = `<div class='muted'>Nimic salvat încă.</div>`;
+      for(const l of favs){
+        const r = document.createElement('div'); r.className='inline card'; r.style.padding='8px'; r.style.alignItems='center'; r.style.justifyContent='space-between';
+        r.innerHTML = `<div><strong>${l.title}</strong> <span class='muted'>(${l.city})</span></div><div class='inline'><button class='btn ghost' onclick="openProp('${l.id}')">Detalii</button><button class='btn' onclick="addToCartQuick('${l.id}')">Rezervă</button></div>`;
+        favBox.appendChild(r);
+      }
+    }
+
+    function toggleUser(show){
+      const el = $$('#userDrawer');
+      if(show){ if(!state.session){ openAuth(); return; } renderUserPanel(); el.classList.add('open'); el.setAttribute('aria-hidden','false'); }
+      else { el.classList.remove('open'); el.setAttribute('aria-hidden','true'); }
+    }
+
+    /* ======================================
+       UI mici utilitare
+    ====================================== */
+    function toast(text){
+      const t = document.createElement('div'); t.className='msg'; t.textContent = text; $$('#toasts').appendChild(t);
+      setTimeout(()=>{ t.remove(); }, 2400);
+    }
+
+    function toggleCart(show){
+      const el = $$('#cartDrawer'); if(show){ renderCart(); el.classList.add('open'); el.setAttribute('aria-hidden','false'); } else { el.classList.remove('open'); el.setAttribute('aria-hidden','true'); }
+    }
+
+    function performSearch(){
+      // preia din form principal
+      state.filters.dest = $$('#dest').value; state.filters.in = $$('#checkIn').value; state.filters.out = $$('#checkOut').value; state.filters.guests = Number($$('#guests').value);
+      state.filters.priceMin = $$('#priceMin').value; state.filters.priceMax = $$('#priceMax').value; state.filters.sort = $$('#sortBy').value;
+      renderListings();
+    }
+
+    function performSearchFromToolbar(){
+      $$('#dest').value = $$('#qs-dest').value; $$('#checkIn').value = $$('#qs-in').value; $$('#checkOut').value = $$('#qs-out').value; $$('#guests').value = $$('#qs-guests').value;
+      performSearch();
+    }
+
+    function resetFilters(){
+      state.filters = { dest:'', in:'', out:'', guests:2, amenities: new Set(), priceMin:null, priceMax:null, sort:'relevant' };
+      $$('#dest').value=''; $$('#checkIn').value=''; $$('#checkOut').value=''; $$('#guests').value='2';
+      $$('#priceMin').value=''; $$('#priceMax').value=''; $$('#sortBy').value='relevant';
+      $$$('.pill').forEach(p=>p.setAttribute('aria-pressed','false'));
+      renderListings();
+    }
+
+    function toggleAmenity(el){
+      const k = el.dataset.filter; const pressed = el.getAttribute('aria-pressed')==='true'; el.setAttribute('aria-pressed', String(!pressed));
+      if(pressed) state.filters.amenities.delete(k); else state.filters.amenities.add(k); renderListings();
+    }
+
+    function addDaysISO(iso, days){ const d = parseDate(iso); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
+
+    function toggleTheme(){ document.body.classList.toggle('light'); document.body.classList.toggle('dark'); const b = $$('#toggleTheme'); b.textContent = document.body.classList.contains('light')? '🌙' : '☀️'; }
+
+    function scrollToTop(){ window.scrollTo({top:0, behavior:'smooth'}); }
+
+    function esc(s){ return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+
+    /* ======================================
+       BOOTSTRAP: setări implicite + render
+    ====================================== */
+    (function init(){
+      // valori default utile
+      $$('#checkIn').value = todayISO();
+      $$('#checkOut').value = addDaysISO(todayISO(), 2);
+      $$('#qs-in').value = $$('#checkIn').value;
+      $$('#qs-out').value = $$('#checkOut').value;
+      renderListings(); updateBadges();
+    })();
+
+    /* ======================================
+       Accesibilitate: esc închide modalele
+    ====================================== */
+    window.addEventListener('keydown', e=>{ if(e.key==='Escape'){ ['propModal','authModal','checkoutModal'].forEach(id=>{ const d=$$('#'+id); if(d?.open) d.close(); }); } });
+
+  </script>
+</body>
+</html>
