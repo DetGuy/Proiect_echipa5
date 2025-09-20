@@ -13,15 +13,6 @@ amadeus = Client(
     client_secret=os.getenv("AMADEUS_CLIENT_SECRET")
 )
 
-
-
-
-
-
-
-
-
-
 # Obtine codul IATA pentru un oras
 def obtine_city_code_hotel(nume_oras: str):
     if nume_oras=="Bucharest":
@@ -51,11 +42,6 @@ def obtine_city_code_hotel(nume_oras: str):
         return city_code
     except ResponseError:
         return None
-
-
-
-
-
 
 #ACEASTA FUNCTIE RETURNEAZA ID URILE HOTELURILOR DIN ORAS.
 #Metoda cu city code(IATA) dadea erori asa ca am gasti aceast alternativa cu id-urile de hotel din orasul x
@@ -113,85 +99,69 @@ def cauta_oferte_hoteluri(hotel_ids, checkInDate, checkOutDate, adults, buget):
         except ResponseError:
             continue
 
+if __name__ == "__main__":
+
+    # --- Main program ---
+    nume = input("Caută orașul pe care vrei să îl vizitezi: ")
+
+    # Date check-in
+    print("Check IN date:")
+    try:
+        dI = int(input("Zi: "))
+        mI = int(input("Lună: "))
+        yI = int(input("An: "))
+        checkInDate = date(yI, mI, dI)
+    except ValueError:
+        print("Data invalida. Încearcă din nou.")
+        sys.exit(0)
+
+    # Date check-out
+    print("Check OUT date:")
+    try:
+        dO = int(input("Zi: "))
+        mO = int(input("Lună: "))
+        yO = int(input("An: "))
+        checkOutDate = date(yO, mO, dO)
+    except ValueError:
+        print("Data invalida. Încearcă din nou.")
+        sys.exit(0)
+
+    # Verifica ordinea datelor
+    if checkOutDate <= checkInDate:
+        print("Data de check-out trebuie să fie după check-in.")
+        sys.exit(0)
+
+    checkInDate_str = checkInDate.isoformat()
+    checkOutDate_str = checkOutDate.isoformat()
+
+    # Nr persoane
+    try:
+        adult = int(input("Număr persoane de cazat: "))
+        if adult < 1:
+            raise ValueError
+    except ValueError:
+        print("Număr invalid de persoane.")
+        sys.exit(0)
+
+    buget = int(input("Bugetul tau(EUR): "))
 
 
+    ##HARDCODE PENTRU A DA EXEMPLU CUM AR FI TREBUIT SA FUNCTIONEZE PROGRAMUL##
+    if nume == "Bucharest":
+        print(f"🏨 Conacul Coroanei Luxury Boutique Hotel - ⭐ 5.0 - 💰 133,88 EUR - 🌐https://www.booking.com/hotel/ro/conacul-coroanei.html?aid=356980&label=gog235jc-10CAsocUISZ3JhbmRob3RlbGZsb3JlbmNlSDNYA2jAAYgBAZgBM7gBF8gBDNgBA-gBAfgBAYgCAagCAbgC5KuCxgbAAgHSAiQxMGNiZTFlMC02MWQ2LTRhNWMtODVkYi0xYjA0NTQyOThlYWHYAgHgAgE&sid=fdd43045831c2f048c445c4b1117986e&all_sr_blocks=569238802_270105759_0_2_0&checkin=2025-12-12&checkout=2025-12-13&dest_id=-1153951&dest_type=city&dist=0&group_adults=2&group_children=0&hapos=1&highlighted_blocks=569238802_270105759_0_2_0&hpos=1&matching_block_id=569238802_270105759_0_2_0&no_rooms=1&req_adults=2&req_children=0&room1=A%2CA&sb_price_type=total&sr_order=popularity&sr_pri_blocks=569238802_270105759_0_2_0__67915&srepoch=1757610549&srpvid=e9827897cd7f02bb&type=total&ucfs=1&")
+        print(cel_mai_apropiat_transport(44.4389, 26.1170))
+        print("-"*40)
 
 
+    # Obtine codul orasului
+    nume_oras = obtine_city_code_hotel(nume)
+    if not nume_oras:
+        print("Nu am gasit orasul.")
+        sys.exit(0)
+
+    #obtine codul pentru hotelurile din orasul cautat
+    hotelID = obtine_hoteluri_oras(nume_oras)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-# --- Main program ---
-nume = input("Caută orașul pe care vrei să îl vizitezi: ")
-
-# Date check-in
-print("Check IN date:")
-try:
-    dI = int(input("Zi: "))
-    mI = int(input("Lună: "))
-    yI = int(input("An: "))
-    checkInDate = date(yI, mI, dI)
-except ValueError:
-    print("Data invalida. Încearcă din nou.")
-    sys.exit(0)
-
-# Date check-out
-print("Check OUT date:")
-try:
-    dO = int(input("Zi: "))
-    mO = int(input("Lună: "))
-    yO = int(input("An: "))
-    checkOutDate = date(yO, mO, dO)
-except ValueError:
-    print("Data invalida. Încearcă din nou.")
-    sys.exit(0)
-
-# Verifica ordinea datelor
-if checkOutDate <= checkInDate:
-    print("Data de check-out trebuie să fie după check-in.")
-    sys.exit(0)
-
-checkInDate_str = checkInDate.isoformat()
-checkOutDate_str = checkOutDate.isoformat()
-
-# Nr persoane
-try:
-    adult = int(input("Număr persoane de cazat: "))
-    if adult < 1:
-        raise ValueError
-except ValueError:
-    print("Număr invalid de persoane.")
-    sys.exit(0)
-
-buget = int(input("Bugetul tau(EUR): "))
-
-
-##HARDCODE PENTRU A DA EXEMPLU CUM AR FI TREBUIT SA FUNCTIONEZE PROGRAMUL##
-if nume == "Bucharest":
-    print(f"🏨 Conacul Coroanei Luxury Boutique Hotel - ⭐ 5.0 - 💰 133,88 EUR - 🌐https://www.booking.com/hotel/ro/conacul-coroanei.html?aid=356980&label=gog235jc-10CAsocUISZ3JhbmRob3RlbGZsb3JlbmNlSDNYA2jAAYgBAZgBM7gBF8gBDNgBA-gBAfgBAYgCAagCAbgC5KuCxgbAAgHSAiQxMGNiZTFlMC02MWQ2LTRhNWMtODVkYi0xYjA0NTQyOThlYWHYAgHgAgE&sid=fdd43045831c2f048c445c4b1117986e&all_sr_blocks=569238802_270105759_0_2_0&checkin=2025-12-12&checkout=2025-12-13&dest_id=-1153951&dest_type=city&dist=0&group_adults=2&group_children=0&hapos=1&highlighted_blocks=569238802_270105759_0_2_0&hpos=1&matching_block_id=569238802_270105759_0_2_0&no_rooms=1&req_adults=2&req_children=0&room1=A%2CA&sb_price_type=total&sr_order=popularity&sr_pri_blocks=569238802_270105759_0_2_0__67915&srepoch=1757610549&srpvid=e9827897cd7f02bb&type=total&ucfs=1&")
-    print(cel_mai_apropiat_transport(44.4389, 26.1170))
-    print("-"*40)
-
-
-# Obtine codul orasului
-nume_oras = obtine_city_code_hotel(nume)
-if not nume_oras:
-    print("Nu am gasit orasul.")
-    sys.exit(0)
-
-#obtine codul pentru hotelurile din orasul cautat
-hotelID = obtine_hoteluri_oras(nume_oras)
-
-
-cauta_oferte_hoteluri(hotelID, checkInDate_str, checkOutDate_str, adult, buget)
+    cauta_oferte_hoteluri(hotelID, checkInDate_str, checkOutDate_str, adult, buget)
 
