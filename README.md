@@ -96,6 +96,56 @@ COULD:
 
 # Relevant Architecture Documents
 
+Original CLI System
+baza.py: Main entry point and hotel search orchestrator
+- Interactive CLI interface for user input (city, dates, budget, guests)
+- Amadeus API client initialization and hotel search logic
+- Currency conversion integration and budget filtering
+- Hardcoded city mappings for major destinations (Bucharest, Copenhagen, Budapest)
+- Main execution flow with input validation and error handling
+
+transport.py: Google Maps integration for transit discovery
+- Places API integration for finding nearby transit stations
+- Distance Matrix API for walking time/distance calculations
+- Support for multiple transport types (metro, bus, train, subway)
+- Error handling with graceful fallbacks for areas with limited transit data
+
+schimb_euro.py: Real-time currency conversion service
+- Exchange rate API integration (open.er-api.com)
+- Multi-currency support with EUR normalization
+- Rate caching mechanism for performance optimization
+- Fallback conversion rates for API failures
+
+Modern Web API Architecture
+app/main.py: FastAPI application server
+- RESTful API endpoints for hotel search and user management
+- JWT authentication middleware and protected routes
+- CORS configuration for frontend integration
+- Request/response validation using Pydantic models
+- Integration layer connecting CLI functions to web endpoints
+
+app/models/models.py: Database schema and ORM models
+- SQLAlchemy models for users, preferences, search history, saved bookings
+- Relational database design with foreign key relationships
+- JSON fields for flexible preference and search data storage
+- Database connection management and session handling
+
+app/services/auth.py: Authentication and user management service
+- Password hashing using bcrypt with salt
+- JWT token generation and validation
+- User registration with email validation
+- Session management and permission control
+
+Enhanced Service Modules
+- new_transport.py: Updated Google Places API implementation
+- setup_db.py: Database initialization and management
+
+Configuration and Environment
+- .env: Environment configuration and API key management
+- Database connection strings and credentials
+
+
+(am mai pus ce mi a dat si claude mai sus daca e sa luati din ele pe la backend sau frontend)
 ## Foldere BACKEND
 - app/main.py: the heart of the backend that compprises classes for the database and all apis
 - baza.py: entry point: the main program that gives the info for the hotels in each city
