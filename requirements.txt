@@ -2,6 +2,11 @@ googlemaps
 python-dotenv
 amadeus
 requests
+flask
+flask-cors
+uvicorn
+pydantic
+
 
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
