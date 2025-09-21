@@ -156,6 +156,7 @@ Se afișează rezultatele
 
 ## API Limitations
 - The biggest blocker for this app is by far Amadeus API: an outdated and slow API. It does not offer the information required for the completion of this project.
+- Amamdeus API is very slow.
 - Google Maps API Considerations: Legacy API Issues: New Places API migration required. Quota Limits: Daily request limits may impact heavy usage.
 
 ## Data availability
