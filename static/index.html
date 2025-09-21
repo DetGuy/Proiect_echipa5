@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CityStay • Cazări ușor</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body{background:#f6f7fb}
+    .card-hover{transition:transform .15s ease, box-shadow .15s ease}
+    .card-hover:hover{transform:translateY(-2px); box-shadow:0 1rem 2rem rgba(0,0,0,.06)}
+    .skeleton{position:relative; overflow:hidden; background:#eef1f6}
+    .skeleton::after{content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent); transform:translateX(-100%); animation:shimmer 1.2s infinite}
+    @keyframes shimmer{100%{transform:translateX(100%)}}
+  </style>
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#">CityStay</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+      <div id="nav" class="collapse navbar-collapse">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item"><a class="nav-link active" data-route="search">Căutare</a></li>
+          <li class="nav-item"><a class="nav-link" data-route="favorites">Favorite</a></li>
+          <li class="nav-item"><a class="nav-link" data-route="account">Cont</a></li>
+        </ul>
+        <span id="statusDot" class="badge rounded-pill text-bg-secondary">Deconectat</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="container my-4">
+    <!-- SEARCH -->
+    <section id="page-search" class="page">
+      <div class="card p-3 mb-3">
+        <form id="searchForm" class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label">Oraș</label>
+            <input id="city" class="form-control" placeholder="București" required list="citylist">
+            <datalist id="citylist">
+              <option>Bucharest</option><option>Cluj-Napoca</option><option>Paris</option><option>London</option><option>Rome</option>
+            </datalist>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Check-in</label>
+            <input id="checkIn" type="date" class="form-control" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Check-out</label>
+            <input id="checkOut" type="date" class="form-control" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Buget (€ / noapte)</label>
+            <input id="budget" type="number" min="0" class="form-control" placeholder="150">
+          </div>
+          <div class="col-md-1">
+            <label class="form-label">Adulți</label>
+            <input id="adults" type="number" min="1" class="form-control" value="2">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Rating minim</label>
+            <select id="minRating" class="form-select">
+              <option value="">Orice</option>
+              <option value="5">5+</option>
+              <option value="4.5">4.5+</option>
+              <option value="4">4+</option>
+              <option value="3.5">3.5+</option>
+              <option value="3">3+</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <button id="btnSearch" class="btn btn-primary"><i class="bi bi-search"></i> Caută</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="results" class="row g-3"></div>
+    </section>
+
+    <!-- FAVORITES -->
+    <section id="page-favorites" class="page d-none">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="m-0">Favorite</h5>
+        <span id="favCount" class="text-muted small"></span>
+      </div>
+      <div id="favoritesList" class="row g-3"></div>
+      <div id="favoritesEmpty" class="text-muted text-center py-4 d-none">Nu ai favorite încă.</div>
+    </section>
+
+    <!-- ACCOUNT -->
+    <section id="page-account" class="page d-none">
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card p-3 h-100">
+            <h6>Autentificare</h6>
+            <form id="loginForm" class="row g-2">
+              <div class="col-12">
+                <label class="form-label">Email</label>
+                <input id="email" type="email" class="form-control" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Parolă</label>
+                <input id="password" type="password" class="form-control" required>
+              </div>
+              <div class="col-12 d-flex gap-2">
+                <button id="btnLogin" class="btn btn-primary" type="submit"><i class="bi bi-box-arrow-in-right"></i> Intră</button>
+                <button id="btnRegister" class="btn btn-outline-primary" type="button"><i class="bi bi-person-plus"></i> Creează cont</button>
+                <button id="btnLogout" class="btn btn-outline-secondary" type="button"><i class="bi bi-box-arrow-right"></i> Delogare</button>
+              </div>
+              <div class="col-12"><div id="authMsg" class="form-text"></div></div>
+            </form>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card p-3 h-100">
+            <h6>Contul meu</h6>
+            <div id="accountBox" class="small text-muted">Autentifică-te pentru detalii.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-3 mt-3">
+        <h6 class="mb-2">Căutări recente</h6>
+        <div id="historyList" class="vstack gap-2"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- TOASTS -->
+  <div class="position-fixed top-0 end-0 p-3" style="z-index:1080">
+    <div id="toast" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div id="toastBody" class="toast-body">Mesaj…</div>
+        <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ---------- Helpers ----------
+    const $ = s => document.querySelector(s);
+    const $$ = s => Array.from(document.querySelectorAll(s));
+    const toastEl = new bootstrap.Toast($('#toast'));
+    function toast(msg, ok=true){
+      const el = $('#toast');
+      el.classList.remove('text-bg-danger','text-bg-success');
+      el.classList.add(ok? 'text-bg-success' : 'text-bg-danger');
+      $('#toastBody').textContent = msg; toastEl.show();
+    }
+
+    // ---------- State ----------
+    const state = {
+      apiUrl: 'http://127.0.0.1:5000',
+      token: localStorage.getItem('token') || null,
+      results: [],
+      favorites: [],
+      history: [],
+      account: null,
+    };
+
+    function authHeaders(){ return state.token? { 'Authorization': 'Bearer '+state.token } : {} }
+    async function api(path, {method='GET', body=null, auth=false}={}){
+      const res = await fetch(state.apiUrl + path, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(auth? authHeaders(): {}) },
+        body: body? JSON.stringify(body) : null,
+      });
+      const txt = await res.text(); let data=null; try{ data = txt? JSON.parse(txt) : null }catch{ data = txt }
+      if(!res.ok){ throw new Error(data?.detail || data?.message || (res.status+' '+res.statusText)); }
+      return data;
+    }
+
+    // ---------- Routing ----------
+    function showPage(id){
+      $$('.page').forEach(p=>p.classList.add('d-none'));
+      $('#page-'+id).classList.remove('d-none');
+      $$('.nav-link').forEach(a=>a.classList.remove('active'));
+      $(`.nav-link[data-route="${id}"]`).classList.add('active');
+      location.hash = id;
+      if(id==='favorites') loadFavorites();
+      if(id==='account') { loadAccount(); loadHistory(); }
+    }
+    $$('.nav-link[data-route]').forEach(a=> a.addEventListener('click', ()=> showPage(a.dataset.route)));
+    window.addEventListener('hashchange', ()=> showPage(location.hash.replace('#','')||'search'));
+
+    // ---------- Search UI ----------
+    (function initSearch(){
+      const today = new Date(); const tmr = new Date(Date.now()+86400000);
+      $('#checkIn').value = today.toISOString().slice(0,10);
+      $('#checkOut').value = tmr.toISOString().slice(0,10);
+
+      $('#searchForm').addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        $('#btnSearch').disabled = true; renderSkeletons();
+        const payload = {
+          city: $('#city').value.trim(),
+          checkIn: $('#checkIn').value,
+          checkOut: $('#checkOut').value,
+          budget: $('#budget').value ? Number($('#budget').value) : null,
+          adults: $('#adults').value ? Math.max(1, Number($('#adults').value)) : 1,
+          minRating: $('#minRating').value ? Number($('#minRating').value) : null
+        };
+        try{
+          api('/api/history', {method:'POST', body: payload, auth:true}).catch(()=>{});
+          const data = await api('/api/hotels/search', {method:'POST', body: payload});
+          state.results = Array.isArray(data)? data : (data.results || []);
+          renderResults();
+          if(!state.results.length) toast('Nu am găsit oferte pentru criteriile alese', false);
+        }catch(err){ toast(err.message||String(err), false); $('#results').innerHTML = '' }
+        finally{ $('#btnSearch').disabled = false }
+      });
+    })();
+
+    function renderSkeletons(){
+      const wrap = $('#results'); wrap.innerHTML = '';
+      for(let i=0;i<6;i++){
+        wrap.insertAdjacentHTML('beforeend', `
+          <div class="col-md-6 col-xl-4">
+            <div class="card card-hover p-2">
+              <div class="d-flex gap-2">
+                <div class="skeleton rounded" style="width:96px;height:96px"></div>
+                <div class="flex-grow-1">
+                  <div class="skeleton rounded mb-2" style="height:18px;width:60%"></div>
+                  <div class="skeleton rounded mb-2" style="height:12px;width:90%"></div>
+                  <div class="skeleton rounded" style="height:12px;width:40%"></div>
+                </div>
+              </div>
+            </div>
+          </div>`);
+      }
+    }
+
+    function hotelCard(h, canFav=false){
+      const ratingText = (h.rating!=null && !Number.isNaN(Number(h.rating))) ? Number(h.rating).toFixed(1) : null;
+      const ratingBadge = `<span class="badge ${ratingText? 'text-bg-warning' : 'text-bg-secondary'}" title="Scor mediu">
+        <i class="bi bi-star-fill"></i> ${ratingText ?? '—'}
+      </span>`;
+      const priceBadge = (h.priceEUR!=null)? `<span class="badge text-bg-success"><i class="bi bi-cash"></i> ${Math.round(h.priceEUR)} €</span>`: '';
+      const walkBadge = (h.distanceToTransitMin!=null)? `<span class="badge text-bg-info"><i class="bi bi-sign-turn-right"></i> ${h.distanceToTransitMin} min până la ${h.transitName||'stație'}</span>`: '';
+
+      return `
+        <div class="col-md-6 col-xl-4">
+          <div class="card card-hover h-100">
+            <div class="d-flex gap-2 p-2">
+              <img src="${h.imageUrl||'https://picsum.photos/seed/'+encodeURIComponent(h.name)+'/'+96}" class="rounded" style="width:96px;height:96px;object-fit:cover" alt="${h.name}">
+              <div class="flex-grow-1">
+                <div class="fw-semibold d-flex align-items-center gap-2">
+                  ${h.name}
+                  ${ratingBadge}
+                </div>
+                <div class="text-muted small">${h.address||''}</div>
+                <div class="d-flex flex-wrap gap-2 mt-1">${priceBadge} ${walkBadge}</div>
+              </div>
+            </div>
+            ${canFav? `<div class="border-top p-2 text-end"><button class="btn btn-sm btn-outline-primary" data-action="fav" data-id="${h.id}"><i class="bi bi-heart"></i> Favorite</button></div>`:''}
+          </div>
+        </div>`;
+    }
+
+    function renderResults(){
+      const wrap = $('#results'); wrap.innerHTML='';
+      state.results.forEach(h => wrap.insertAdjacentHTML('beforeend', hotelCard(h, true)));
+      wrap.addEventListener('click', async (e)=>{
+        const btn = e.target.closest('[data-action="fav"]'); if(!btn) return;
+        if(!state.token){ toast('Autentifică-te pentru a salva favorite', false); return; }
+        const id = btn.dataset.id; const h = state.results.find(x=> String(x.id)===String(id)); if(!h) return;
+        try{ await api('/api/favorites',{method:'POST', body:{hotelId:h.id, payload:h}, auth:true}); toast('Adăugat la favorite'); await loadFavorites(); }
+        catch(err){ toast(err.message||String(err), false) }
+      }, { once: true });
+    }
+
+    // ---------- Favorites ----------
+    async function loadFavorites(){
+      const wrap = $('#favoritesList');
+      if(!state.token){ wrap.innerHTML = '<div class="text-muted">Autentifică-te pentru a vedea favoritele.</div>'; $('#favCount').textContent=''; return; }
+      try{
+        const list = await api('/api/favorites', {auth:true}); state.favorites = list||[];
+        $('#favCount').textContent = `(${state.favorites.length})`;
+        if(!state.favorites.length){ wrap.innerHTML=''; $('#favoritesEmpty').classList.remove('d-none'); return; }
+        $('#favoritesEmpty').classList.add('d-none');
+        wrap.innerHTML = state.favorites.map(h=> hotelCard(h,false)).join('');
+      }catch(err){ wrap.innerHTML = `<div class="text-danger">${err.message||String(err)}</div>` }
+    }
+
+    // ---------- Account & History ----------
+    function refreshAuthUI(){
+      $('#statusDot').textContent = state.token? 'Autentificat' : 'Deconectat';
+      $('#statusDot').className = 'badge rounded-pill '+(state.token? 'text-bg-success':'text-bg-secondary');
+      $('#btnLogout').disabled = !state.token;
+      if(!state.token){ $('#accountBox').textContent = 'Autentifică-te pentru detalii.' }
+    }
+
+    async function loadAccount(){
+      if(!state.token){ return }
+      try{
+        const acc = await api('/api/account',{auth:true});
+        $('#accountBox').innerHTML = `
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div><b>Email:</b> ${acc.email}</div>
+              ${acc.createdAt? `<div class="text-muted small">Creat la: ${new Date(acc.createdAt).toLocaleString()}</div>`:''}
+            </div>
+            <span class="text-muted small">token: ${(state.token||'').slice(0,6)}…</span>
+          </div>`;
+      }catch(err){ $('#accountBox').innerHTML = `<span class="text-danger">${err.message||String(err)}</span>` }
+    }
+
+    async function loadHistory(){
+      const wrap = $('#historyList');
+      if(!state.token){ wrap.innerHTML = '<span class="text-muted">Autentifică-te pentru a vedea istoricul.</span>'; return; }
+      try{
+        const h = await api('/api/history',{auth:true});
+        if(!h?.length){ wrap.innerHTML = '<span class="text-muted">Nicio căutare salvată.</span>'; return; }
+        wrap.innerHTML = h.map(x=> `<div class="border rounded p-2 d-flex justify-content-between align-items-center">
+          <div><b>${x.city}</b> • ${x.checkIn} → ${x.checkOut} ${x.budget? '• buget '+x.budget+'€':''} ${x.adults? '• '+x.adults+' adulți':''} ${x.minRating? '• rating '+x.minRating+'+':''}</div>
+        </div>`).join('');
+      }catch(err){ wrap.innerHTML = `<span class="text-danger">${err.message||String(err)}</span>` }
+    }
+
+    // Auth actions
+    $('#loginForm').addEventListener('submit', async e=>{
+      e.preventDefault();
+      try{ const d = await api('/api/auth/login',{method:'POST', body:{email:$('#email').value.trim(), password:$('#password').value}}); state.token = d.token; localStorage.setItem('token', d.token); refreshAuthUI(); toast('Autentificat'); }
+      catch(err){ toast(err.message||String(err), false) }
+    });
+    $('#btnRegister').addEventListener('click', async ()=>{
+      try{ await api('/api/auth/register',{method:'POST', body:{email:$('#email').value.trim(), password:$('#password').value}}); toast('Cont creat. Te poți autentifica.'); }
+      catch(err){ toast(err.message||String(err), false) }
+    });
+    $('#btnLogout').addEventListener('click', ()=>{ state.token=null; localStorage.removeItem('token'); refreshAuthUI(); toast('Delogat'); });
+
+    // Boot
+    (function boot(){
+      refreshAuthUI();
+      showPage(location.hash.replace('#','')||'search');
+    })();
+  </script>
+</body>
+</html>
