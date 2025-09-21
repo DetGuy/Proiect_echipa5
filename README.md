@@ -91,6 +91,9 @@ COULD:
 ## Milestone 7
       - Created server that acts as the bridge between frontend and backend: it exposes clean REST API endpoints for auth, hotel search, favorites, and history, while also normalizing data (currency, ratings) before sending it to the UI. It loads environment keys, handles CORS and token-based authentication, and can serve the frontend static files. This ensures the frontend only talks to one consistent API layer, without touching the backend internals.
 
+
+
+
 # Relevant Architecture Documents
 
 ## Foldere BACKEND
