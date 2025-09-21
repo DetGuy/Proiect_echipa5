@@ -99,6 +99,10 @@ COULD:
 - transport.py and new_transport.py(the new google maps places api): search for the nearest transit station and return the walking duration from hotel to nearest station
 - schimb_euro.py: currency conversion
 - .env: keeps the API keys private
+- server.py: links the frontend with the existing backend logic, exposes REST endpoints for all the main functionalities
+
+  ## Frontend
+  - static/index.html: user-friendly frontend interface, allows users to search for hotels, manage favorites, and handle account actions
 
 
 
