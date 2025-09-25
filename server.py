@@ -1,9 +1,9 @@
-# server.py — adaptor FastAPI care folosește backend-ul existent (fără modificări)
-# Endpoints pentru frontend:
+# server.py — FastAPI adapter bridging frontend and backend (no backend code changes)
+# Endpoints:
 #   POST   /api/auth/register        {email, password}
 #   POST   /api/auth/login           {email, password} -> {token}
 #   GET    /api/account              (Bearer token)
-#   POST   /api/hotels/search        {city, checkIn, checkOut, budget?, adults, minRating?}
+#   POST   /api/hotels/search        {city, checkIn(date), checkOut(date), budget?, adults, minRating?}
 #   GET    /api/favorites            (Bearer)
 #   POST   /api/favorites            (Bearer) body: {hotelId, payload}
 #   DELETE /api/favorites/{id}       (Bearer)
@@ -16,7 +16,7 @@ import os
 import sys
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -26,8 +26,16 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, FileResponse
 from pydantic import BaseModel, EmailStr, Field
+try:
+    # pydantic v2
+    from pydantic import field_validator
+    P2 = True
+except Exception:
+    # fallback to v1 for older environments
+    from pydantic import validator as field_validator  # type: ignore
+    P2 = False
 
-# ---------- .env înainte de importul backend-ului ----------
+# ---------- .env before backend import ----------
 ROOT = Path(__file__).parent.resolve()
 try:
     from dotenv import load_dotenv
@@ -35,18 +43,18 @@ try:
 except Exception:
     pass
 
-# Asigură-te că folderul curent e în sys.path (pentru import baza.py)
+# ensure current folder on sys.path (for baza.py)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# ---------- Import backend existent ----------
+# ---------- import backend (no changes to backend files) ----------
 try:
     import importlib
     baza = importlib.import_module("baza")
 except Exception:
     baza = None
 
-# transport: întâi transport.py, apoi fallback new_transport.py
+# transport helper: prefer transport.py, fallback to new_transport.py
 try:
     from transport import cel_mai_apropiat_transport  # type: ignore
 except Exception:
@@ -55,13 +63,13 @@ except Exception:
     except Exception:
         cel_mai_apropiat_transport = None  # type: ignore
 
-# conversie valută
+# currency conversion
 try:
     from schimb_euro import convert_to_euro
 except Exception:
     convert_to_euro = None  # type: ignore
 
-# ---------- Config ----------
+# ---------- config ----------
 APP_NAME = "Proiect_echipa5 API"
 DATA_DIR = Path(os.getenv("APP_DATA_DIR", "./app_data"))
 DATA_DIR.mkdir(exist_ok=True)
@@ -70,7 +78,7 @@ SESSIONS_FILE = DATA_DIR / "sessions.json"
 FAVORITES_FILE = DATA_DIR / "favorites.json"
 HISTORY_FILE = DATA_DIR / "history.json"
 
-# ---------- Mini storage JSON ----------
+# ---------- tiny JSON storage ----------
 def _read_json(path: Path, default):
     if not path.exists():
         return default
@@ -86,7 +94,7 @@ def _write_json(path: Path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
     tmp.replace(path)
 
-# ---------- Modele ----------
+# ---------- models ----------
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=4)
@@ -101,11 +109,63 @@ class AccountOut(BaseModel):
 
 class SearchIn(BaseModel):
     city: str
-    checkIn: str
-    checkOut: str
+    checkIn: date
+    checkOut: date
     budget: Optional[float] = None
     adults: int = 1
     minRating: Optional[float] = None
+
+    # parse strings -> date (pydantic v2 style; works with v1 via alias above)
+    if P2:
+        @field_validator("checkIn", "checkOut", mode="before")  # type: ignore
+        @classmethod
+        def _parse_date(cls, v):
+            if isinstance(v, date):
+                return v
+            try:
+                return date.fromisoformat(str(v))
+            except Exception:
+                raise ValueError("Invalid date format, expected YYYY-MM-DD")
+    else:
+        @field_validator("checkIn", "checkOut", pre=True)  # type: ignore
+        def _parse_date(cls, v):
+            if isinstance(v, date):
+                return v
+            try:
+                return date.fromisoformat(str(v))
+            except Exception:
+                raise ValueError("Invalid date format, expected YYYY-MM-DD")
+
+    if P2:
+        @field_validator("checkIn")  # type: ignore
+        @classmethod
+        def _validate_checkin_not_past(cls, v: date):
+            if v < date.today():
+                raise ValueError("Check-in date cannot be in the past")
+            return v
+    else:
+        @field_validator("checkIn")  # type: ignore
+        def _validate_checkin_not_past(cls, v: date):
+            if v < date.today():
+                raise ValueError("Check-in date cannot be in the past")
+            return v
+
+    # need access to checkIn
+    if P2:
+        @field_validator("checkOut")  # type: ignore
+        @classmethod
+        def _validate_checkout_after_checkin(cls, v: date, info):
+            checkin = info.data.get("checkIn")
+            if isinstance(checkin, date) and v <= checkin:
+                raise ValueError("Check-out date must be after check-in date")
+            return v
+    else:
+        @field_validator("checkOut")  # type: ignore
+        def _validate_checkout_after_checkin(cls, v: date, values):
+            checkin = values.get("checkIn")
+            if isinstance(checkin, date) and v <= checkin:
+                raise ValueError("Check-out date must be after check-in date")
+            return v
 
 class Hotel(BaseModel):
     id: str
@@ -123,7 +183,7 @@ class FavoriteIn(BaseModel):
     hotelId: str
     payload: Dict[str, Any]
 
-# ---------- Auth ----------
+# ---------- auth ----------
 security = HTTPBearer(auto_error=True)
 
 def _load_users():
@@ -155,20 +215,20 @@ def _require_user(creds: HTTPAuthorizationCredentials = Depends(security)) -> st
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     return email
 
-# ---------- Integrare backend existent ----------
+# ---------- backend integration ----------
 def _fetch_hotels_from_backend(city: str, check_in: str, check_out: str,
                                budget: Optional[float], adults: int,
                                min_rating: Optional[float]) -> List[Hotel]:
-    """Folosește direct baza.py + Amadeus + schimb_euro + transport fără a modifica backend-ul."""
+    """Call existing backend functions (baza.py) + normalize result; no backend edits."""
     if baza is None:
         raise HTTPException(status_code=500, detail="Nu pot importa baza.py din backend.")
 
-    # 1) Cod IATA pentru oraș
+    # 1) city code
     city_code = baza.obtine_city_code_hotel(city)  # type: ignore[attr-defined]
     if not city_code:
         raise HTTPException(status_code=404, detail="Orașul nu a fost găsit sau nu are hoteluri.")
 
-    # 2) ID-uri de hotel pentru oraș
+    # 2) hotel ids for city
     hotel_ids = baza.obtine_hoteluri_oras(city_code)  # type: ignore[attr-defined]
     if not hotel_ids:
         raise HTTPException(status_code=404, detail="Nu am găsit hoteluri pentru orașul dat.")
@@ -200,8 +260,9 @@ def _fetch_hotels_from_backend(city: str, check_in: str, check_out: str,
         for oferta in data:
             hotel = oferta.get("hotel", {})
             name = hotel.get("name", f"Hotel {hid}")
+
+            # normalize rating -> one decimal
             raw_rating = hotel.get("rating")
-            # NORMALIZARE RATING la 1 zecimală
             try:
                 rating = round(float(raw_rating), 1) if raw_rating is not None else None
             except Exception:
@@ -224,11 +285,11 @@ def _fetch_hotels_from_backend(city: str, check_in: str, check_out: str,
             except Exception:
                 pass
 
-            # filtrare pe buget
+            # budget filter
             if budget is not None and price_eur is not None and price_eur > budget:
                 continue
 
-            # filtrare pe rating minim
+            # min rating filter
             if min_rating is not None:
                 if rating is None:
                     continue
@@ -238,7 +299,7 @@ def _fetch_hotels_from_backend(city: str, check_in: str, check_out: str,
                 except Exception:
                     continue
 
-            # transport public (opțional)
+            # nearest transit (optional)
             dist_minutes = None
             transit_name = None
             if cel_mai_apropiat_transport and (lat is not None and lon is not None):
@@ -247,7 +308,6 @@ def _fetch_hotels_from_backend(city: str, check_in: str, check_out: str,
                     if isinstance(info, dict):
                         transit_name = info.get("station_name")
                         dur = str(info.get("duration") or "")
-                        # extrage primul număr de minute din text
                         for token in dur.split():
                             if token.isdigit():
                                 dist_minutes = int(token)
@@ -277,7 +337,7 @@ def _fetch_hotels_from_backend(city: str, check_in: str, check_out: str,
 # ---------- FastAPI app ----------
 app = FastAPI(title=APP_NAME)
 
-# CORS — permisiv pentru dev (acceptă inclusiv 127.0.0.1:5500)
+# CORS (dev-friendly)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=".*",
@@ -293,7 +353,7 @@ def register(payload: RegisterIn):
     if payload.email in users:
         raise HTTPException(status_code=400, detail="Email deja folosit")
     users[payload.email] = {
-        "password": payload.password,  # pentru producție folosește hashing
+        "password": payload.password,  # hash in prod
         "createdAt": datetime.utcnow().isoformat() + "Z",
     }
     _save_users(users)
@@ -317,8 +377,12 @@ def account(email: str = Depends(_require_user)):
 @app.post("/api/hotels/search", response_model=Dict[str, List[Hotel]])
 def hotels_search(q: SearchIn):
     hotels = _fetch_hotels_from_backend(
-        q.city, q.checkIn, q.checkOut,
-        q.budget, q.adults, q.minRating
+        q.city,
+        q.checkIn.isoformat(),   # send strings to Amadeus
+        q.checkOut.isoformat(),
+        q.budget,
+        q.adults,
+        q.minRating
     )
     return {"results": hotels}
 
@@ -380,8 +444,7 @@ def add_history(entry: SearchIn, email: str = Depends(_require_user)):
 def health():
     return {"ok": True, "name": APP_NAME, "time": datetime.utcnow().isoformat() + "Z"}
 
-# ---------- STATIC (Varianta A) ----------
-# Servește index.html la "/" și restul resurselor sub /static
+# ---------- STATIC (Variant A) ----------
 static_dir = ROOT / "static"
 
 @app.get("/")
@@ -393,7 +456,7 @@ def root_page():
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=static_dir, html=True), name="static")
 
-# ---------- Run (dev) ----------
+# ---------- run (dev) ----------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", 5000)), reload=True)

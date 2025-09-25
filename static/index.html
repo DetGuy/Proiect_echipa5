@@ -146,12 +146,33 @@
     // ---------- Helpers ----------
     const $ = s => document.querySelector(s);
     const $$ = s => Array.from(document.querySelectorAll(s));
-    const toastEl = new bootstrap.Toast($('#toast'));
-    function toast(msg, ok=true){
+
+    function formatError(err) {
+      try {
+        if (!err) return "Unknown error";
+        if (typeof err === "string") return err;
+        if (err.detail) {
+          if (Array.isArray(err.detail)) {
+            return err.detail.map(d => d?.msg || d?.message || JSON.stringify(d)).join("; ");
+          }
+          return typeof err.detail === "string" ? err.detail : JSON.stringify(err.detail);
+        }
+        if (err.message) return err.message;
+        if (err.statusText) return `${err.status || ''} ${err.statusText}`.trim();
+        return JSON.stringify(err);
+      } catch (_) {
+        return "Unexpected error";
+      }
+    }
+
+    function toast(msg, ok = true) {
+      msg = formatError(msg);
       const el = $('#toast');
+      const t = new bootstrap.Toast(el);
       el.classList.remove('text-bg-danger','text-bg-success');
-      el.classList.add(ok? 'text-bg-success' : 'text-bg-danger');
-      $('#toastBody').textContent = msg; toastEl.show();
+      el.classList.add(ok ? 'text-bg-success' : 'text-bg-danger');
+      $('#toastBody').textContent = msg;
+      t.show();
     }
 
     // ---------- State ----------
@@ -165,14 +186,20 @@
     };
 
     function authHeaders(){ return state.token? { 'Authorization': 'Bearer '+state.token } : {} }
-    async function api(path, {method='GET', body=null, auth=false}={}){
+
+    async function api(path, {method='GET', body=null, auth=false}={}) {
       const res = await fetch(state.apiUrl + path, {
         method,
-        headers: { 'Content-Type': 'application/json', ...(auth? authHeaders(): {}) },
-        body: body? JSON.stringify(body) : null,
+        headers: { 'Content-Type': 'application/json', ...(auth ? authHeaders() : {}) },
+        body: body ? JSON.stringify(body) : null,
       });
-      const txt = await res.text(); let data=null; try{ data = txt? JSON.parse(txt) : null }catch{ data = txt }
-      if(!res.ok){ throw new Error(data?.detail || data?.message || (res.status+' '+res.statusText)); }
+      const txt = await res.text();
+      let data = null;
+      try { data = txt ? JSON.parse(txt) : null } catch { data = txt }
+      if (!res.ok) {
+        const payload = (data && typeof data === 'object') ? data : { detail: data };
+        throw { status: res.status, statusText: res.statusText, ...payload };
+      }
       return data;
     }
 
@@ -212,7 +239,7 @@
           state.results = Array.isArray(data)? data : (data.results || []);
           renderResults();
           if(!state.results.length) toast('Nu am găsit oferte pentru criteriile alese', false);
-        }catch(err){ toast(err.message||String(err), false); $('#results').innerHTML = '' }
+        }catch(err){ toast(err, false); $('#results').innerHTML = '' }
         finally{ $('#btnSearch').disabled = false }
       });
     })();
@@ -266,12 +293,13 @@
     function renderResults(){
       const wrap = $('#results'); wrap.innerHTML='';
       state.results.forEach(h => wrap.insertAdjacentHTML('beforeend', hotelCard(h, true)));
+      // delegate fav
       wrap.addEventListener('click', async (e)=>{
         const btn = e.target.closest('[data-action="fav"]'); if(!btn) return;
         if(!state.token){ toast('Autentifică-te pentru a salva favorite', false); return; }
         const id = btn.dataset.id; const h = state.results.find(x=> String(x.id)===String(id)); if(!h) return;
         try{ await api('/api/favorites',{method:'POST', body:{hotelId:h.id, payload:h}, auth:true}); toast('Adăugat la favorite'); await loadFavorites(); }
-        catch(err){ toast(err.message||String(err), false) }
+        catch(err){ toast(err, false) }
       }, { once: true });
     }
 
@@ -285,7 +313,7 @@
         if(!state.favorites.length){ wrap.innerHTML=''; $('#favoritesEmpty').classList.remove('d-none'); return; }
         $('#favoritesEmpty').classList.add('d-none');
         wrap.innerHTML = state.favorites.map(h=> hotelCard(h,false)).join('');
-      }catch(err){ wrap.innerHTML = `<div class="text-danger">${err.message||String(err)}</div>` }
+      }catch(err){ wrap.innerHTML = `<div class="text-danger">${formatError(err)}</div>` }
     }
 
     // ---------- Account & History ----------
@@ -300,15 +328,13 @@
       if(!state.token){ return }
       try{
         const acc = await api('/api/account',{auth:true});
+        // Token is intentionally NOT shown
         $('#accountBox').innerHTML = `
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <div><b>Email:</b> ${acc.email}</div>
-              ${acc.createdAt? `<div class="text-muted small">Creat la: ${new Date(acc.createdAt).toLocaleString()}</div>`:''}
-            </div>
-            <span class="text-muted small">token: ${(state.token||'').slice(0,6)}…</span>
+          <div>
+            <div><b>Email:</b> ${acc.email}</div>
+            ${acc.createdAt? `<div class="text-muted small">Creat la: ${new Date(acc.createdAt).toLocaleString()}</div>`:''}
           </div>`;
-      }catch(err){ $('#accountBox').innerHTML = `<span class="text-danger">${err.message||String(err)}</span>` }
+      }catch(err){ $('#accountBox').innerHTML = `<span class="text-danger">${formatError(err)}</span>` }
     }
 
     async function loadHistory(){
@@ -320,20 +346,41 @@
         wrap.innerHTML = h.map(x=> `<div class="border rounded p-2 d-flex justify-content-between align-items-center">
           <div><b>${x.city}</b> • ${x.checkIn} → ${x.checkOut} ${x.budget? '• buget '+x.budget+'€':''} ${x.adults? '• '+x.adults+' adulți':''} ${x.minRating? '• rating '+x.minRating+'+':''}</div>
         </div>`).join('');
-      }catch(err){ wrap.innerHTML = `<span class="text-danger">${err.message||String(err)}</span>` }
+      }catch(err){ wrap.innerHTML = `<span class="text-danger">${formatError(err)}</span>` }
     }
 
     // Auth actions
     $('#loginForm').addEventListener('submit', async e=>{
       e.preventDefault();
-      try{ const d = await api('/api/auth/login',{method:'POST', body:{email:$('#email').value.trim(), password:$('#password').value}}); state.token = d.token; localStorage.setItem('token', d.token); refreshAuthUI(); toast('Autentificat'); }
-      catch(err){ toast(err.message||String(err), false) }
+      try{
+        const d = await api('/api/auth/login',{method:'POST', body:{email:$('#email').value.trim(), password:$('#password').value}});
+        state.token = d.token; localStorage.setItem('token', d.token);
+        // Clear inputs
+        $('#email').value = '';
+        $('#password').value = '';
+        refreshAuthUI();
+        // Immediately show account + history and switch tab
+        await Promise.all([loadAccount(), loadHistory()]);
+        showPage('account');
+        toast('Autentificat');
+      }catch(err){ toast(err, false) }
     });
+
     $('#btnRegister').addEventListener('click', async ()=>{
-      try{ await api('/api/auth/register',{method:'POST', body:{email:$('#email').value.trim(), password:$('#password').value}}); toast('Cont creat. Te poți autentifica.'); }
-      catch(err){ toast(err.message||String(err), false) }
+      try{
+        await api('/api/auth/register',{method:'POST', body:{email:$('#email').value.trim(), password:$('#password').value}});
+        toast('Cont creat. Te poți autentifica.');
+      }catch(err){ toast(err, false) }
     });
-    $('#btnLogout').addEventListener('click', ()=>{ state.token=null; localStorage.removeItem('token'); refreshAuthUI(); toast('Delogat'); });
+
+    $('#btnLogout').addEventListener('click', ()=>{
+      // clear token and force full reload so history & UI reset immediately
+      state.token = null;
+      localStorage.removeItem('token');
+      state.history = [];
+      state.favorites = [];
+      location.reload();
+    });
 
     // Boot
     (function boot(){
