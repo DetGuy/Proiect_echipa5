@@ -19,6 +19,7 @@ import uuid
 from datetime import datetime, date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from fastapi.encoders import jsonable_encoder
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -176,6 +177,7 @@ class Hotel(BaseModel):
     rating: Optional[float] = None
     distanceToTransitMin: Optional[int] = None
     transitName: Optional[str] = None
+    transportAvailable: Optional[bool] = None  # <- ADĂUGAT
     imageUrl: Optional[str] = None
     raw: Optional[Dict[str, Any]] = None
 
@@ -325,6 +327,7 @@ def _fetch_hotels_from_backend(city: str, check_in: str, check_out: str,
                 rating=rating,
                 distanceToTransitMin=dist_minutes,
                 transitName=transit_name,
+                transportAvailable=(dist_minutes is not None),  # <- ADĂUGAT
                 imageUrl=None,
                 raw=oferta,
             ))
@@ -435,7 +438,7 @@ def add_history(entry: SearchIn, email: str = Depends(_require_user)):
     data = _load_map_file(HISTORY_FILE)
     user_map = data.get(email, {})
     key = uuid.uuid4().hex
-    user_map[key] = entry.dict()
+    user_map[key] = jsonable_encoder(entry)  # evită eroarea cu date
     data[email] = user_map
     _save_map_file(HISTORY_FILE, data)
     return {"ok": True}

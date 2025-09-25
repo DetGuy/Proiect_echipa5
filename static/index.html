@@ -263,13 +263,29 @@
       }
     }
 
+    function transportBadge(h){
+      // Preferăm explicit câmpul boolean dacă e prezent, altfel deducem din distanță
+      const available = (typeof h.transportAvailable === 'boolean') ? h.transportAvailable
+                      : (h.distanceToTransitMin != null);
+      if (available) {
+        const mins = (h.distanceToTransitMin != null) ? `${h.distanceToTransitMin} min` : 'Aproape';
+        const name = h.transitName || 'stație';
+        return `<span class="badge text-bg-info" title="Mijloc de transport în apropiere">
+                  <i class="bi bi-bus-front"></i> ${mins} până la ${name}
+                </span>`;
+      }
+      return `<span class="badge text-bg-danger" title="Nu am găsit stații apropiate">
+                <i class="bi bi-slash-circle"></i> Fără transport în apropiere
+              </span>`;
+    }
+
     function hotelCard(h, canFav=false){
       const ratingText = (h.rating!=null && !Number.isNaN(Number(h.rating))) ? Number(h.rating).toFixed(1) : null;
       const ratingBadge = `<span class="badge ${ratingText? 'text-bg-warning' : 'text-bg-secondary'}" title="Scor mediu">
         <i class="bi bi-star-fill"></i> ${ratingText ?? '—'}
       </span>`;
       const priceBadge = (h.priceEUR!=null)? `<span class="badge text-bg-success"><i class="bi bi-cash"></i> ${Math.round(h.priceEUR)} €</span>`: '';
-      const walkBadge = (h.distanceToTransitMin!=null)? `<span class="badge text-bg-info"><i class="bi bi-sign-turn-right"></i> ${h.distanceToTransitMin} min până la ${h.transitName||'stație'}</span>`: '';
+      const walkOrNo = transportBadge(h);
 
       return `
         <div class="col-md-6 col-xl-4">
@@ -282,7 +298,7 @@
                   ${ratingBadge}
                 </div>
                 <div class="text-muted small">${h.address||''}</div>
-                <div class="d-flex flex-wrap gap-2 mt-1">${priceBadge} ${walkBadge}</div>
+                <div class="d-flex flex-wrap gap-2 mt-1">${priceBadge} ${walkOrNo}</div>
               </div>
             </div>
             ${canFav? `<div class="border-top p-2 text-end"><button class="btn btn-sm btn-outline-primary" data-action="fav" data-id="${h.id}"><i class="bi bi-heart"></i> Favorite</button></div>`:''}
